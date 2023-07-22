@@ -6,7 +6,6 @@ library(qacEDA)
 library(gstat)
 library(relaimpo)
 
-#setwd("~/Desktop/Point-Topic")
 ### 0. Useful if filtering OAs by nation e.g. Eng + Wales (2011) --------------
 lookup <- read_csv("data/2011_OAC_Lookup/2011 OAC CSV Lookup.csv")
 colnames(lookup)
