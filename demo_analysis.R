@@ -144,3 +144,52 @@ OA %>%
 
 
 write_csv(OA, "demo_analysis_clean.csv")
+
+
+# queried from snowflake raw codepoint UK 2022 table
+codepoint <- read_csv("data/demos/codepoint_raw_households_UK.csv")
+str(codepoint)
+
+lookup <- read_csv("data/Lookups/NSP21CL_MAY23_UK_LU.csv")
+str(lookup)
+lookup <- dplyr::select(lookup,
+                        pcds, oa21cd, lsoa21cd) # select postcode pcds
+
+colSums(is.na(lookup)) # 10,741 oa21cd, lsoa21cd missing
+
+codepoint <- left_join(codepoint, lookup, by = c("RM_POSTCODE" = "pcds"))
+
+colSums(is.na(codepoint))
+# NAs = 0!
+length(unique(codepoint$oa21cd))
+
+# group by OA
+codepoint_oa <- codepoint %>%
+  dplyr::select(2,3) %>%
+  group_by(oa21cd) %>%
+  summarise(cp_households = sum(HOUSEHOLDS))
+
+
+# read census households 2021 data
+census <- read_csv("data/census2021-ts041/census2021-ts041-oa.csv") # just Eng + Wales
+
+# compare census with codepoint at OA level
+joined <- census %>%
+  dplyr::select(3,4) %>%
+  rename(OA_code = 1,
+         cs_household = 2) %>%
+  left_join(y = codepoint_oa, by = c("OA_code" = "oa21cd"))
+
+# census count - codepoint count
+joined$hh_cs_cp <- (joined$cs_household) - (joined$cp_households)
+
+summary(joined)
+
+# read UPC queried
+upc <- read_csv("data/demos/UPC_sociodemographics.csv")
+
+# compare with census & codepoint
+joined <- left_join(joined, upc[,2:3], by = c("OA_code" = "COA_CODE"))
+joined <- rename(joined, upc_households = 5)
+
+colSums(is.na(joined))
