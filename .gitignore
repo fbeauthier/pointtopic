@@ -51,3 +51,14 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 pointtopic.Rproj
+geos/.DS_Store
+geos/LSOA_Dec_2021_Boundaries/LSOA_2021_EW_BGC.shx
+geos/LSOA_Dec_2021_Boundaries/LSOA_2021_EW_BGC.shp
+geos/LSOA_Dec_2021_Boundaries/LSOA_2021_EW_BGC.prj
+geos/LSOA_Dec_2021_Boundaries/LSOA_2021_EW_BGC.dbf
+geos/LSOA_Dec_2021_Boundaries/LSOA_2021_EW_BGC.cpg
+geos/2011_oa_shp/TermsAndConditions.html
+geos/2011_oa_shp/infuse_oa_lyr_2011.shx
+geos/2011_oa_shp/infuse_oa_lyr_2011.shp
+geos/2011_oa_shp/infuse_oa_lyr_2011.prj
+geos/2011_oa_shp/infuse_oa_lyr_2011.dbf

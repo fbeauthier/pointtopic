@@ -251,7 +251,7 @@ lm1_relimp
 ### Scotland ------------------------------------------------------------------
 
 
-### new BII 2023 (queried vars from snowflake) --------------------------------
+### new BII 2023 ALL UK (queried vars from snowflake) --------------------------------
 new_bii <- read_csv("data/BIIquery_2023.csv")
 new_bii <- mutate(new_bii,
                   fttp_rank = NA,

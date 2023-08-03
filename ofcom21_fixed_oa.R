@@ -83,12 +83,14 @@ oa_fixedlines <- oa_fixedlines[1:nrow(oa_fixedlines)-1, ]
 # RESIDENTIAL coverage file
 # https://www.ofcom.org.uk/research-and-data/multi-sector-research/infrastructure-research/connected-nations-2021/data-downloads
 
+oa_fixedlines <- read_csv("data/ofcom21_fixedlines_oa_130723.csv")
+
 # read Ofcom coverage (residential)
-oa_coverage <- read_csv("data/cn-2021-fixed-oa11-coverage/202109_fixed_oa11_res_coverage_r01.csv")
+oa_coverage <- read_csv("data/202109_fixed_oa11_res_coverage.csv")
 colnames(oa_coverage)
 
 # select columns
-oa_coverage <- select(oa_coverage, 1, 2, 3, 26:37)
+oa_coverage <- dplyr::select(oa_coverage, 1, 2, 3, 26:37)
 
 # check number of OAs
 length(unique(oa_coverage$output_area))
@@ -102,7 +104,7 @@ filter(oa_coverage, premise_diff == 1)
 
 # left join premises to Ofcom line counts
 oa_fixedlines <- oa_coverage %>%
-  select(1, 2) %>%
+  dplyr::select(1, 2) %>%
   left_join(x = oa_fixedlines, by = c("oa11" = "output_area"))
 
 # rename premises (residential) to households
@@ -114,69 +116,14 @@ oa_fixedlines$test2 <- ifelse(oa_fixedlines$total_lines <= oa_fixedlines$househo
 # view
 filter(oa_fixedlines, test2 == 1)
 
-# new column: create a total broadband penetration measure
-# Penetration rate (PR) = total number of lines (subscriptions)/ households
-# In theory should be <= 1
-oa_fixedlines$total_PR <- (oa_fixedlines$total_lines)/(oa_fixedlines$households)
+oa_fixedlines <- filter(oa_fixedlines, oa11 %in% joined$OA_code) # filter to England and Wales only
 
-summary(oa_fixedlines)
-
-# potentially interesting: penetration rate for high speed broadband lines
-# hh_oa$highspeed_PR <- (hh_oa$high_speed_count)/(hh_oa$households)
-
-#write_csv(oa_fixedlines, "data/fixed_bbpr_140723.csv")
-
-### 3. BDDI indicators vs broadband penetration rate --------------------------
-
-#oa_fixedlines <- read_csv("data/fixed_bbpr_140723.csv")
-
-oa_fixedlines <- oa_fixedlines %>%
-  select(-test2) %>%
-  na.omit()
-# 231,902 to 231,809 rows (OAs)
-
-# descriptive statistics about penetration rate
-oa_fixedlines %>%
-  filter(total_PR < 10) %>%
-  ggplot(aes(x=total_PR)) +
-  geom_boxplot()
-
-summary(oa_fixedlines)
-#  3rd Qu.: 0.9052  
-IQR(oa_fixedlines$total_PR) # 0.129053
-
-# Maximum value to exclude outliers usually = Q3 + 1.5*IQR
-0.9052 + 1.5*0.129053
-# = 1.09878
-
-# filter data where PR <= 1.1
-oa_fixedlines %>%
-  filter(total_PR <= 1.1) # 225,838 rows (OAs)
-# 97% data remaining is OK
-
-oa_fixedlines <- filter(oa_fixedlines, total_PR <= 1.1)
-# view distribution
-oa_fixedlines %>%
-  ggplot(aes(x=total_PR)) +
-  geom_density()
-# right skew
-
-## read look-up for OA to LSOA
-# pulled from snowflake upc table
-lookup <- read_csv("data/UPC_OA_lookup.csv")
-str(lookup)
-
-# remove duplicates in look-up
-lookup <- lookup %>%
-  distinct(COA_CODE, .keep_all = TRUE)
-
-# left join LSOAs
-oa_fixedlines <- left_join(oa_fixedlines, lookup, by = c("oa11" = "COA_CODE"))
-
-
-# aggreate to LSOA: oa_fixedlines groupby LSOA 
+# aggregate to LSOA
+oa_fixedlines <- left_join(oa_fixedlines, lookup[2:3], by = c("oa11" = "oa21cd"))
+oa_fixedlines <- distinct(oa_fixedlines)
+  
 LSOA_fixedlines <- oa_fixedlines %>%
-  group_by(LSOA) %>%
+  group_by(lsoa21cd) %>%
   summarise(Mbps_2orless = sum(Mbps_2orless),
             Mbps_2to5 = sum(Mbps_2to5),
             Mbps_5to10 = sum(Mbps_5to10),
@@ -188,78 +135,122 @@ LSOA_fixedlines <- oa_fixedlines %>%
             med_speed_count = sum(med_speed_count),
             high_speed_count = sum(high_speed_count),
             total_lines = sum(total_lines),
-            households = sum(households),
-            total_PR = mean(total_PR))
+            households = sum(households))
+            
+
+# new column: create a total broadband penetration measure
+# Penetration rate (PR) = total number of lines (subscriptions)/ households
+# In theory should be <= 1
+oa_fixedlines$total_PR <- (oa_fixedlines$total_lines)/(oa_fixedlines$households)
+
+summary(oa_fixedlines)
+
+# penetration rate for high speed broadband lines
+oa_fixedlines$PR_highspeed <- (oa_fixedlines$high_speed_count)/(oa_fixedlines$households)
+
+# penetration rate for medium speed broadband lines
+oa_fixedlines$PR_med_speed <- (oa_fixedlines$med_speed_count)/(oa_fixedlines$households)
+
+# penetration rate for low speed broadband lines
+oa_fixedlines$PR_low_speed <- (oa_fixedlines$low_speed_count)/(oa_fixedlines$households)
+
+
+# column adjust total PR not above 1
+oa_fixedlines$total_PR_ajd <- ifelse(oa_fixedlines$total_PR > 1, 1, oa_fixedlines$total_PR)
+summary(oa_fixedlines)
+
+write_csv(oa_fixedlines, "data/ofcom_LSOA_fixed_bbpr_260723.csv")
+
+
+filter(oa_fixedlines, PR_low_speed > 0.5)
+
+oa_fixedlines %>%
+  dplyr::select(9:12) %>%
+  summarise(per_low = sum(low_speed_count)/sum(total_lines),
+            per_medium = sum(med_speed_count)/sum(total_lines),
+            per_high = sum(high_speed_count)/sum(total_lines)) %>%
+  round(digits = 3)
+
+### 3. BDDI indicators vs broadband penetration rate LSOA ---------------------
+
+LSOA_fixedlines <- read_csv("data/ofcom_LSOA_fixed_bbpr_260723.csv") # 35304
+
+colSums(is.na(LSOA_fixedlines)) # 24 NAs
+
+LSOA_fixedlines <- na.omit(LSOA_fixedlines)
+summary(LSOA_fixedlines)
+
+# total PR 3rd Qu.: 0.8909  
+IQR(LSOA_fixedlines$total_PR) # 0.09220001
+# Maximum value to exclude outliers usually = Q3 + 1.5*IQR
+0.8909 + 1.5*0.09220001
+# = 1.0292
+
+# descriptive statistics
+LSOA_fixedlines %>%
+  filter(total_PR < 1.03) %>%
+  ggplot(aes(x=total_PR)) +
+  geom_boxplot()
+
+# filter data where PR <= 1.03 (see calc above)
+LSOA_fixedlines %>%
+  filter(total_PR <= 1.03) # 34,839 rows (LSOAs)
+# 98.75% data remaining is OK
+
+LSOA_fixedlines <- filter(LSOA_fixedlines, total_PR <= 1.03)
+# view distribution
+LSOA_fixedlines %>%
+  ggplot(aes(x=total_PR)) +
+  geom_density()
+# right skew
 
 
 ## LSOA fixed lines vs socio-demographic indicators: England + Wales ##
-## requires raw file created 07.07.23
+
+# requires raw file created 07.07.23 + income deprivation 2019
 df1 <- read_csv("data/EngWales/070723_raw.csv")
+# income
+income <- read_csv("data/EngWales/2019_IoD_Englandincome.csv")
+# modify income LSOAs to 2021 using new lookup
+lookup <- read_csv("data/Lookups/LSOA(2011)_to_LSOA(2021).csv")
 
-# MSOA 2018 income estimate data
-# https://www.ons.gov.uk/employmentandlabourmarket/peopleinwork/earningsandworkinghours/datasets/smallareaincomeestimatesformiddlelayersuperoutputareasenglandandwales
+# left join 2021 LSOAs to income
+income <- lookup %>%
+  dplyr::select(2,4) %>%
+  left_join(x = income, by = c("LSOA code (2011)" = "LSOA11CD"))
 
-msoa_income2018 <- readxl::read_xlsx("data/EngWales/incomeestimatesforsmallareasdatasetfinancialyearending20181.xlsx",
-                                     sheet = "Net income after housing costs")
-
-# rename columns, select
-msoa_income2018 <- msoa_income2018 %>%
-  rename(MSOA_code = 1,
-         MSOA_name = 2,
-         annual_disposable_income = 7) %>%  # Net annual income after housing costs (£)
-  dplyr::select(1,2,7)
-
-msoa_income2018 <- msoa_income2018[5:nrow(msoa_income2018),]
-
-## read look-up for LSOA to MSOA
-# pulled from snowflake upc table
-msoa_lookup <- read_csv("data/UPC_MSOA_lookup.csv")
-
-# remove duplicates in look-up
-msoa_lookup <- msoa_lookup %>%
-  distinct(LSOA, .keep_all = TRUE)
-
-# left join MSOAs by LSOAs
-df1 <- left_join(df1, msoa_lookup, by = c("LSOA_code" = "LSOA"))
-dplyr::select(df1, LSOA_code, MSOA_AND_IM)
-
-# left join MSOA income to df1
-df1 <- left_join(df1, msoa_income2018, by = c("MSOA_AND_IM" = "MSOA_code"))
-class(df1$annual_disposable_income)
-# convert to numeric
-df1$annual_disposable_income <- as.numeric(df1$annual_disposable_income)
-
-## left join Ofcom LSOA fixed lines to df1
-df1 <- LSOA_fixedlines %>%
-  dplyr::select(1, 12:14) %>%
-  left_join(x = df1, by = c("LSOA_code" = "LSOA"))
+# left join income to df1
+df1 <- income %>%
+  dplyr::select(5,6) %>%
+  rename(income_dep_rate = 1) %>%
+  left_join(x = df1, by = c("LSOA_code" = "LSOA21CD"))
+# remove duplicates
+df1 <- distinct(df1, LSOA_code, .keep_all = TRUE)
 
 colSums(is.na(df1))
-# 2025 BII for LSOA missing, 2028 PR LSOAs missing
+na.omit(df1) # 31,799 non-NAs
+31799/nrow(df1)
 
-# check difference in households count census (x) vs ofcom (y)
-df1$households_diff <- (df1$households.y) - (df1$households.x) 
-summary(df1$households_diff)
+df1 <- na.omit(df1)
+# final demographic regressors table obtained #
 
+# join total PR with df1
+df1_for_lm <- df1 %>%
+  dplyr::select(LSOA_code, prop_over65, prop_hh_children, prop_hh_disability, prop_hh_sochousing, prop_hh_dep_edu,
+                prop_age16_noedu, income_dep_rate, AvgOfBII_total) %>%
+  inner_join(y = LSOA_fixedlines[,c("lsoa21cd","total_PR","PR_highspeed","PR_med_speed","PR_low_speed")],
+             by = c("LSOA_code" = "lsoa21cd")) # PR other than total_PR not filtered
+
+str(df1_for_lm) # should all be numeric
+colSums(is.na(df1_for_lm))
 
 # Linear Model + rela_impo
-# select variables, omit NAs
-colnames(df1)
-df1_forlm <- df1 %>%
-  ungroup() %>%
-  dplyr::select(prop_over65, prop_hh_children, prop_hh_disability, prop_hh_sochousing, prop_hh_dep_edu,
-                prop_age16_noedu, AvgOfBII_total, annual_disposable_income, total_lines, total_PR) %>%
-  drop_na()
-
-str(df1_forlm) # should all be numeric
-
-# run linear model
-colnames(df1_forlm)
+colnames(df1_for_lm)
 # regressing LSOA broadband penetration rate on 7 socio-demographic indicators
-lm1 <- lm(total_PR ~ prop_over65 + prop_hh_children + prop_hh_disability + prop_hh_sochousing + prop_hh_dep_edu + prop_age16_noedu + annual_disposable_income, 
-          data = df1_forlm)
+lm1 <- lm(total_PR ~ prop_over65 + prop_hh_children + prop_hh_disability + prop_hh_sochousing + prop_hh_dep_edu + prop_age16_noedu + income_dep_rate, 
+          data = df1_for_lm)
 
 summary(lm1)
 
-lm1_relimp <- calc.relimp(lm1, type = "lmg")
-lm1_relimp
+calc.relimp(lm1, type = "lmg", rela = TRUE)
+
