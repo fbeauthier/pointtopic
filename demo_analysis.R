@@ -210,7 +210,7 @@ joined %>%
 
 write_csv(joined, "data/demos/hh_codepoint_joined_lsoa.csv")
 
-### Code-Point v Ofcom v IDBR businesses --------------------------------------
+### Code-Point v IDBR businesses --------------------------------------
 colnames(lookup)
 # using MSOAs
 
