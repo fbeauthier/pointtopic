@@ -1,0 +1,51 @@
+---
+title: "UPC & IDBR Business Premises"
+author: "Fushu Beauthier"
+date: "`r Sys.Date()`"
+output: html_document
+---
+[Descriptive text]
+
+N.B. For each file, the directory/file path and file names in the code below need to be modified according to where you have stored each file and how you saved it when you downloaded it.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+**Loading the necessary packages**
+```{r}
+library(ggpubr)
+library(tidyverse)
+library(qacEDA)
+library(gstat)
+```
+
+#### Load the UPC estimated business premises 20XX, pulled from Snowflake table
+```{r}
+
+```
+
+#### Load the IDBR business premises, last updated 2019 (as of 2023)
+```{r}
+# change directory/file path as required #
+# idbr <- read_csv("data/demos/")
+# 
+# idbr <- idbr %>%
+#   rename(MSOA = 1, Total = 2) %>%
+#   filter(!row_number() %in% c(1:7))
+# 
+# # edit MSOA to codes only
+# idbr$MSOA <- sapply(strsplit(idbr$MSOA, ":"), "[", 2)
+# idbr$MSOA <- sapply(strsplit(idbr$MSOA, " "), "[", 1)
+# head(idbr$MSOA)
+# idbr$Total <- as.integer(idbr$Total)
+# summary(idbr)
+
+```
+
+
+#### Load the IDBR local units, last updated 2019 (as of 2023)
+```{r}
+
+```
+
