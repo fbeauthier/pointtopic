@@ -4,7 +4,7 @@
 
 # the variables included to construct the BII are queried directly from the:
 # FACT_OPERATOR, UPC_OUTPUT, FACT_POSTCODE_TECH and FACT_SPEED_TEST tables in the Snowflake database
-# see XXDOC for the full SQL query
+# see "BII_query_all_in_one.rtf" file in the current directory for the full SQL query
 
 # load packages
 library(tidyverse)
@@ -12,7 +12,7 @@ library(tidyverse)
 #setwd("BII/")
 
 # read the query output file (in same directory as this .R file)
-new_bii <- read_csv("BIIquery_2023.csv")
+new_bii <- read_csv("BII_query_output.csv")
 
 ### 1. exploratory data analysis ----------------------------------------------
 # is GFAST relevant?
@@ -98,4 +98,4 @@ new_bii$RANK[order(new_bii$rank_sum)] <- 1:nrow(new_bii)
 
 
 # save as .csv
-write_csv(new_bii, "newBII_2023.csv")
+write_csv(new_bii, "newBII_output2023.csv")
