@@ -11,7 +11,7 @@
 
 <meta name="author" content="Fushu Beauthier" />
 
-<meta name="date" content="2023-08-14" />
+<meta name="date" content="2023-08-15" />
 
 <title>UPC &amp; IDBR Business Premises</title>
 
@@ -352,13 +352,14 @@ display: none;
 
 <h1 class="title toc-ignore">UPC &amp; IDBR Business Premises</h1>
 <h4 class="author">Fushu Beauthier</h4>
-<h4 class="date">2023-08-14</h4>
+<h4 class="date">2023-08-15</h4>
 
 </div>
 
 
-<p>[Descriptive text]</p>
-<p>[Snowflake query to pull UPC data]</p>
+<p>This document demonstrates step-by-step []</p>
+<p>The downloaded IDBR .csv’s had to be converted to .xlsx because files
+wouldn’t separate columns correctly when read in R.</p>
 <p>N.B. For each file, the directory/file path and file names in the
 code below need to be modified according to where you have stored each
 file and how you saved it when you downloaded it.</p>
@@ -367,28 +368,253 @@ file and how you saved it when you downloaded it.</p>
 library(tidyverse)
 library(qacEDA)
 library(gstat)</code></pre>
-<div id="load-the-upc-estimated-business-premises-20xx-pulled-from-snowflake-table" class="section level4">
-<h4>Load the UPC estimated business premises 20XX, pulled from Snowflake
+<div id="load-the-upc-estimated-business-premises-2019-pulled-from-snowflake-table" class="section level4">
+<h4>Load the UPC estimated business premises 2019, pulled from Snowflake
 table</h4>
+<pre class="r"><code># obtained business sites at post-code level straight from UPC table in Snowflake
+upc &lt;- read_csv(&quot;data/demos/UPC_busprems/UPC_bussites_2019.csv&quot;)
+head(upc)</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   POSTCODE BUS_SITES_TOTAL
+##   &lt;chr&gt;              &lt;dbl&gt;
+## 1 KA1 5DG                0
+## 2 M43 7FW                0
+## 3 NE23 6BA               0
+## 4 G53 7YW                0
+## 5 DH8 7AT                0
+## 6 BS22 7TQ               0</code></pre>
 </div>
-<div id="load-the-idbr-business-premises-last-updated-2019-as-of-2023" class="section level2">
-<h2>Load the IDBR business premises, last updated 2019 (as of 2023)</h2>
-<pre class="r"><code># change directory/file path as required #
-# idbr &lt;- read_csv(&quot;data/demos/&quot;)
-# 
-# idbr &lt;- idbr %&gt;%
-#   rename(MSOA = 1, Total = 2) %&gt;%
-#   filter(!row_number() %in% c(1:7))
-# 
-# # edit MSOA to codes only
-# idbr$MSOA &lt;- sapply(strsplit(idbr$MSOA, &quot;:&quot;), &quot;[&quot;, 2)
-# idbr$MSOA &lt;- sapply(strsplit(idbr$MSOA, &quot; &quot;), &quot;[&quot;, 1)
-# head(idbr$MSOA)
-# idbr$Total &lt;- as.integer(idbr$Total)
-# summary(idbr)</code></pre>
+<div id="load-the-post-code-to-msoa-lookup-2011-msoas" class="section level4">
+<h4>Load the post-code to MSOA lookup (2011 MSOAs)</h4>
+<pre class="r"><code># lookup obtained from 
+lookup &lt;- read_csv(&quot;data/Lookups/NSPCL_2011_UK_LU.csv&quot;)
+head(lookup)</code></pre>
+<pre><code>## # A tibble: 6 × 25
+##   pcd7  pcd8  pcds  dointr doterm usert…¹ oseas…² osnrt…³ oa11cd oac11cd oac11nm
+##   &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;  &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;   &lt;chr&gt;  
+## 1 AB1 … AB1 … AB1 … 198001 199606       0  385386 0801193 S0009… 1C3     Detach…
+## 2 AB1 … AB1 … AB1 … 198001 199606       0  385177 0801314 S0009… 1C3     Detach…
+## 3 AB1 … AB1 … AB1 … 198001 199606       0  385053 0801092 S0009… 6A1     Indian…
+## 4 AB1 … AB1 … AB1 … 199402 199606       0  384600 0799300 S0009… 1A2     Establ…
+## 5 AB1 … AB1 … AB1 … 199012 199207       1  384460 0800660 S0009… 6A4     Ageing…
+## 6 AB1 … AB1 … AB1 … 199012 199207       1  383890 0800710 S0009… 7C3     Outer …
+## # … with 14 more variables: wz11cd &lt;chr&gt;, wzc11cd &lt;chr&gt;, wzc11nm &lt;chr&gt;,
+## #   lsoa11cd &lt;chr&gt;, lsoa11nm &lt;chr&gt;, msoa11cd &lt;chr&gt;, msoa11nm &lt;chr&gt;,
+## #   soac11cd &lt;chr&gt;, soac11nm &lt;chr&gt;, ladcd &lt;chr&gt;, ladnm &lt;chr&gt;, ladnmw &lt;chr&gt;,
+## #   laccd &lt;chr&gt;, lacnm &lt;chr&gt;, and abbreviated variable names ¹​usertype,
+## #   ²​oseast1m, ³​osnrth1m</code></pre>
+<pre class="r"><code># select only post-code and msoa code columns
+length(unique(lookup$msoa11cd)) # 8,484</code></pre>
+<pre><code>## [1] 8484</code></pre>
+<pre class="r"><code>lookup_msoa &lt;- dplyr::select(lookup,
+                             pcds, msoa11cd)</code></pre>
 </div>
-<div id="load-the-idbr-local-units-last-updated-2019-as-of-2023" class="section level2">
-<h2>Load the IDBR local units, last updated 2019 (as of 2023)</h2>
+<div id="join-msoa-lookup-onto-upc-table" class="section level4">
+<h4>Join MSOA lookup onto UPC table</h4>
+<pre class="r"><code>upc &lt;- left_join(upc, lookup_msoa, by = c(&quot;POSTCODE&quot; = &quot;pcds&quot;))
+head(upc)</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   POSTCODE BUS_SITES_TOTAL msoa11cd 
+##   &lt;chr&gt;              &lt;dbl&gt; &lt;chr&gt;    
+## 1 KA1 5DG                0 S02001492
+## 2 M43 7FW                0 E02001239
+## 3 NE23 6BA               0 E02005718
+## 4 G53 7YW                0 S02001844
+## 5 DH8 7AT                0 E02004304
+## 6 BS22 7TQ               0 E02003079</code></pre>
+<pre class="r"><code># check NAs
+colSums(is.na(upc)) # 856 business sites missing at post-code level, i.e. 856 post-codes where business sites not counted</code></pre>
+<pre><code>##        POSTCODE BUS_SITES_TOTAL        msoa11cd 
+##               0             856             698</code></pre>
+<pre class="r"><code># we choose to omit these NAs, otherwise when aggregating will make MSOAs NAs
+upc &lt;- na.omit(upc)
+
+# view unique number of MSOAs left
+length(unique(upc$msoa11cd)) # 8,478</code></pre>
+<pre><code>## [1] 8478</code></pre>
+</div>
+<div id="we-now-group-upc-business-premises-by-msoa-in-a-new-table" class="section level4">
+<h4>We now group UPC business premises by MSOA in a new table</h4>
+<pre class="r"><code>upc_MSOA &lt;- upc %&gt;%
+  dplyr::select(2,3) %&gt;%
+  group_by(msoa11cd) %&gt;%
+  summarise(upc_bus_prems = sum(BUS_SITES_TOTAL))
+
+head(upc_MSOA)</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   msoa11cd  upc_bus_prems
+##   &lt;chr&gt;             &lt;dbl&gt;
+## 1 E02000001       16893. 
+## 2 E02000002          91.8
+## 3 E02000003         310. 
+## 4 E02000004          43.0
+## 5 E02000005         120. 
+## 6 E02000007          97.2</code></pre>
+<pre class="r"><code># finally, round to whole numbers
+upc_MSOA$upc_bus_prems &lt;- round(upc_MSOA$upc_bus_prems, digits = 0)</code></pre>
+</div>
+<div id="load-the-idbr-business-premises-for-cleaning-last-updated-2019-as-of-2023" class="section level4">
+<h4>Load the IDBR business premises for cleaning, last updated 2019 (as
+of 2023)</h4>
+<pre class="r"><code>idbr_ent &lt;- readxl::read_xlsx(&quot;data/demos/UPC_busprems/IDBR_enterprises_2019.xlsx&quot;)
+# check data classes
+str(idbr_ent)</code></pre>
+<pre><code>## tibble [108,561 × 20] (S3: tbl_df/tbl/data.frame)
+##  $ UK Business Counts - enterprises by industry and employment size band: chr [1:108561] &quot;ONS Crown Copyright Reserved [from Nomis on 14 August 2023]&quot; &quot;Analysis   :&quot; &quot;Date       :&quot; &quot;Employment Sizeband:&quot; ...
+##  $ ...2                                                                 : chr [1:108561] NA &quot;standard&quot; &quot;2022&quot; &quot;Total&quot; ...
+##  $ ...3                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...4                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...5                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...6                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...7                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...8                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...9                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...10                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...11                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...12                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...13                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...14                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...15                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...16                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...17                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...18                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...19                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...20                                                                : chr [1:108561] NA NA NA NA ...</code></pre>
+<pre class="r"><code># convert count columns to numeric
+idbr_ent &lt;- mutate_at(idbr_ent, c(3:20), as.numeric)
+# select only the first table in the file
+idbr_ent &lt;- idbr_ent[9:7209,]
+
+# create Totals per MSOA column
+idbr_ent$idbr_sum_ents &lt;- rowSums(idbr_ent[,3:20])
+# rename MSOA code column and only select relevant columns
+idbr_ent &lt;- idbr_ent %&gt;%
+  rename(MSOA = 2) %&gt;%
+  dplyr::select(MSOA, idbr_sum_ents)
+
+head(idbr_ent)</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   MSOA      idbr_sum_ents
+##   &lt;chr&gt;             &lt;dbl&gt;
+## 1 E02002559           540
+## 2 E02002560           115
+## 3 E02002561            70
+## 4 E02002562           110
+## 5 E02002563            65
+## 6 E02002564           110</code></pre>
+</div>
+<div id="load-the-idbr-local-units-for-cleaning-last-updated-2019-as-of-2023" class="section level4">
+<h4>Load the IDBR local units for cleaning, last updated 2019 (as of
+2023)</h4>
+<pre class="r"><code>idbr_units &lt;- readxl::read_xlsx(&quot;data/demos/UPC_busprems/IDBR_localunits_2019.xlsx&quot;)
+# check data classes
+str(idbr_units)</code></pre>
+<pre><code>## tibble [108,561 × 19] (S3: tbl_df/tbl/data.frame)
+##  $ UK Business Counts - local units by industry and employment size band: chr [1:108561] &quot;ONS Crown Copyright Reserved [from Nomis on 14 August 2023]&quot; &quot;Analysis   :&quot; &quot;Date       :&quot; &quot;Employment Sizeband:&quot; ...
+##  $ ...2                                                                 : chr [1:108561] NA &quot;standard&quot; &quot;2022&quot; &quot;Total&quot; ...
+##  $ ...3                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...4                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...5                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...6                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...7                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...8                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...9                                                                 : chr [1:108561] NA NA NA NA ...
+##  $ ...10                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...11                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...12                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...13                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...14                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...15                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...16                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...17                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...18                                                                : chr [1:108561] NA NA NA NA ...
+##  $ ...19                                                                : chr [1:108561] NA NA NA NA ...</code></pre>
+<pre class="r"><code># convert count columns to numeric
+idbr_units &lt;- mutate_at(idbr_units, c(2:19), as.numeric)
+# select only the first table in the file
+idbr_units &lt;- idbr_units[9:7209,]
+
+# create Totals per MSOA column
+idbr_units$idbr_sum_units &lt;- rowSums(idbr_units[,2:19])
+
+# rename MSOA column
+idbr_units &lt;- rename(idbr_units, MSOA = 1)
+
+# split first column to obtain MSOA code
+idbr_units$MSOA &lt;- sapply(strsplit(idbr_units$MSOA, &quot; &quot;), &quot;[&quot;, 1)
+
+idbr_units &lt;- dplyr::select(idbr_units,
+                            MSOA, idbr_sum_units)
+
+head(idbr_units)</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   MSOA      idbr_sum_units
+##   &lt;chr&gt;              &lt;dbl&gt;
+## 1 E02002559            625
+## 2 E02002560            135
+## 3 E02002561             90
+## 4 E02002562            150
+## 5 E02002563             80
+## 6 E02002564            135</code></pre>
+</div>
+<div id="we-can-create-new-totals-table" class="section level4">
+<h4>We can create new totals table</h4>
+<pre class="r"><code># join IDBR tables, then join UPC table
+all_prems &lt;- left_join(idbr_ent, idbr_units, by = &quot;MSOA&quot;) %&gt;%
+  left_join(y = upc_MSOA, by = c(&quot;MSOA&quot; = &quot;msoa11cd&quot;))
+
+head(all_prems)</code></pre>
+<pre><code>## # A tibble: 6 × 4
+##   MSOA      idbr_sum_ents idbr_sum_units upc_bus_prems
+##   &lt;chr&gt;             &lt;dbl&gt;          &lt;dbl&gt;         &lt;dbl&gt;
+## 1 E02002559           540            625           235
+## 2 E02002560           115            135            89
+## 3 E02002561            70             90            19
+## 4 E02002562           110            150           148
+## 5 E02002563            65             80            40
+## 6 E02002564           110            135            75</code></pre>
+</div>
+<div id="analysis" class="section level4">
+<h4>Analysis</h4>
+<pre class="r"><code># UPC vs IDBR enterprises/businesses diff
+# UPC - IDBR
+all_prems$UPC_idbr_ents &lt;- (all_prems$upc_bus_prems) - (all_prems$idbr_sum_ents)
+
+# UPC vs IDBR local units diff
+# UPC - IDBR
+all_prems$UPC_idbr_units &lt;- (all_prems$upc_bus_prems) - (all_prems$idbr_sum_units)
+
+# absolute differences
+all_prems$UPC_idbr_entsA &lt;- abs(all_prems$UPC_idbr_ents)
+all_prems$UPC_idbr_unitsA &lt;- abs(all_prems$UPC_idbr_units)
+
+
+# total sums of premises for UPC and each IDBR
+all_prems %&gt;%
+  summarise(sum(idbr_sum_ents),
+            sum(idbr_sum_units),
+            sum(upc_bus_prems)) # UPC estimates really low, even lower than Code-Point raw data</code></pre>
+<pre><code>## # A tibble: 1 × 3
+##   `sum(idbr_sum_ents)` `sum(idbr_sum_units)` `sum(upc_bus_prems)`
+##                  &lt;dbl&gt;                 &lt;dbl&gt;                &lt;dbl&gt;
+## 1              2508090               2900910              1819602</code></pre>
+<pre class="r"><code>summary(all_prems)</code></pre>
+<pre><code>##      MSOA           idbr_sum_ents     idbr_sum_units    upc_bus_prems    
+##  Length:7201        Min.   :   30.0   Min.   :   40.0   Min.   :    4.0  
+##  Class :character   1st Qu.:  190.0   1st Qu.:  215.0   1st Qu.:   96.0  
+##  Mode  :character   Median :  290.0   Median :  330.0   Median :  178.0  
+##                     Mean   :  348.3   Mean   :  402.8   Mean   :  252.7  
+##                     3rd Qu.:  420.0   3rd Qu.:  485.0   3rd Qu.:  309.0  
+##                     Max.   :22305.0   Max.   :25605.0   Max.   :16893.0  
+##  UPC_idbr_ents       UPC_idbr_units     UPC_idbr_entsA    UPC_idbr_unitsA  
+##  Min.   :-11262.00   Min.   :-12152.0   Min.   :    0.0   Min.   :    0.0  
+##  1st Qu.:  -189.00   1st Qu.:  -229.0   1st Qu.:   54.0   1st Qu.:   66.0  
+##  Median :   -87.00   Median :  -127.0   Median :  118.0   Median :  138.0  
+##  Mean   :   -95.61   Mean   :  -150.2   Mean   :  157.2   Mean   :  176.8  
+##  3rd Qu.:    -7.00   3rd Qu.:   -47.0   3rd Qu.:  213.0   3rd Qu.:  235.0  
+##  Max.   :  1544.00   Max.   :   962.0   Max.   :11262.0   Max.   :12152.0</code></pre>
+<pre class="r"><code># save csv
+#write_csv(all_prems, &quot;data/demos/UPC_busprems/all_premises_clean.csv&quot;)</code></pre>
 </div>
 
 

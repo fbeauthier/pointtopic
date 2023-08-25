@@ -1,12 +1,35 @@
 ---
-title: "UPC & IDBR Business Premises"
+title: "UPC & IDBR Business Premises Exploratory Analysis"
 author: "Fushu Beauthier"
-date: "`r Sys.Date()`"
-output: html_document
+date: "15 August 2023"
+output:
+  pdf_document: default
+  html_document: default
 ---
-[Descriptive text]
+This is the step-by-step methodology, with R code, for the data cleaning and pre-processing for the Point-Topic UPC v. IDBR UK Business Counts exporatory analysis.
+
+The downloaded IDBR .csv's had to be converted to .xlsx because files wouldn't separate columns correctly when read in R.
 
 N.B. For each file, the directory/file path and file names in the code below need to be modified according to where you have stored each file and how you saved it when you downloaded it.
+
+**Steps:**
+
+1. Load the UPC estimated business premises
+
+2. Load the post-code to MSOA lookup (Census 2011 boundaries)
+
+3. Join MSOA lookup onto UPC table
+
+4. Group UPC business premises by MSOA
+
+5. Load the IDBR Business Premises
+
+6. Load the IDBR Local Units
+
+7. Join all IDBR and UPC in a new table
+
+8. Analysis & summary statistics
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
@@ -17,35 +40,144 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(ggpubr)
 library(tidyverse)
 library(qacEDA)
-library(gstat)
 ```
 
-#### Load the UPC estimated business premises 20XX, pulled from Snowflake table
+**1. Load the UPC estimated business premises 2019, pulled from Snowflake table**
 ```{r}
-
+# business sites obtained at post-code level straight from UPC table in Snowflake
+upc <- read_csv("data/demos/UPC_busprems/UPC_bussites_2019.csv") # 
+head(upc)
 ```
 
-#### Load the IDBR business premises, last updated 2019 (as of 2023)
+
+**2. Load the post-code to MSOA lookup (2011 MSOAs)**
 ```{r}
-# change directory/file path as required #
-# idbr <- read_csv("data/demos/")
-# 
-# idbr <- idbr %>%
-#   rename(MSOA = 1, Total = 2) %>%
-#   filter(!row_number() %in% c(1:7))
-# 
-# # edit MSOA to codes only
-# idbr$MSOA <- sapply(strsplit(idbr$MSOA, ":"), "[", 2)
-# idbr$MSOA <- sapply(strsplit(idbr$MSOA, " "), "[", 1)
-# head(idbr$MSOA)
-# idbr$Total <- as.integer(idbr$Total)
-# summary(idbr)
+# lookup obtained from ONS Open Geography Portal
+lookup <- read_csv("data/Lookups/NSPCL_2011_UK_LU.csv")
+head(lookup)
 
+length(unique(lookup$msoa11cd)) # view number of MSOAs
+# select only post-code and msoa code columns
+lookup_msoa <- dplyr::select(lookup,
+                             pcds, msoa11cd)
 ```
 
 
-#### Load the IDBR local units, last updated 2019 (as of 2023)
+**3. Join MSOA lookup onto UPC table**
 ```{r}
+# use left-join
+upc <- left_join(upc, lookup_msoa, by = c("POSTCODE" = "pcds"))
+head(upc)
+# check NAs
+colSums(is.na(upc)) 
+# 856 business sites missing at post-code level, i.e. 856 post-codes where business sites not counted
 
+# we choose to omit these NAs, otherwise when aggregating entire MSOAs will become NA
+upc <- na.omit(upc)
+
+# view unique number of MSOAs left
+length(unique(upc$msoa11cd))
 ```
 
+
+**4. We now group UPC business premises by MSOA in a new table**
+```{r}
+# select only MSOAs and business sites columns, group by MSOA code
+upc_MSOA <- upc %>%
+  dplyr::select(2,3) %>%  # column index
+  group_by(msoa11cd) %>%
+  summarise(upc_bus_prems = sum(BUS_SITES_TOTAL))
+
+head(upc_MSOA)
+
+# finally, round to whole numbers
+upc_MSOA$upc_bus_prems <- round(upc_MSOA$upc_bus_prems, digits = 0)
+```
+
+
+**5. Load the IDBR Business Premises for cleaning, last updated 2019 (as of 2023)**
+```{r}
+idbr_ent <- readxl::read_xlsx("data/demos/UPC_busprems/IDBR_enterprises_2019.xlsx")
+# check data classes using: str(idbr_ent)
+
+# convert count columns to numeric
+idbr_ent <- mutate_at(idbr_ent, c(3:20), as.numeric)
+# select only the first table in the .xlsx file
+# (remember .xlsx file contains many tables one below the other)
+idbr_ent <- idbr_ent[9:7209,]
+
+# missing business sites Total column, so we create Totals per MSOA column
+idbr_ent$idbr_sum_ents <- rowSums(idbr_ent[,3:20])
+
+# rename MSOA code column and only select relevant columns
+idbr_ent <- idbr_ent %>%
+  rename(MSOA = 2) %>%
+  dplyr::select(MSOA, idbr_sum_ents)
+
+head(idbr_ent)
+```
+
+
+**6. Load the IDBR Local Units for cleaning, last updated 2019 (as of 2023)**
+```{r}
+idbr_units <- readxl::read_xlsx("data/demos/UPC_busprems/IDBR_localunits_2019.xlsx")
+# check data classes using: str(idbr_units)
+
+# convert count columns to numeric
+idbr_units <- mutate_at(idbr_units, c(2:19), as.numeric)
+# select only the first table in the .xlsx file
+# (remember .xlsx file contains many tables one below the other)
+idbr_units <- idbr_units[9:7209,]
+
+# missing business sites Total column, so we create Totals per MSOA column
+idbr_units$idbr_sum_units <- rowSums(idbr_units[,2:19])
+
+# rename MSOA column
+idbr_units <- rename(idbr_units, MSOA = 1)
+
+# split first column to obtain MSOA code only using sapply() function
+idbr_units$MSOA <- sapply(strsplit(idbr_units$MSOA, " "), "[", 1)
+
+# select relevant columns
+idbr_units <- dplyr::select(idbr_units,
+                            MSOA, idbr_sum_units)
+
+head(idbr_units)
+```
+
+
+**7. We can create a new table for all the totals at MSOA level**
+```{r}
+# join IDBR tables together, then join UPC table
+all_prems <- left_join(idbr_ent, idbr_units, by = "MSOA") %>%
+  left_join(y = upc_MSOA, by = c("MSOA" = "msoa11cd"))
+
+head(all_prems)
+```
+
+
+**8. Analysis & summary statistics**
+```{r}
+# Create difference column of UPC vs IDBR enterprises/businesses (UPC - IDBR)
+all_prems$UPC_idbr_ents <- (all_prems$upc_bus_prems) - (all_prems$idbr_sum_ents)
+
+# Create difference column of UPC vs IDBR local units (UPC - IDBR)
+all_prems$UPC_idbr_units <- (all_prems$upc_bus_prems) - (all_prems$idbr_sum_units)
+
+# create simple absolute differences columns from the differences
+all_prems$UPC_idbr_entsA <- abs(all_prems$UPC_idbr_ents)
+all_prems$UPC_idbr_unitsA <- abs(all_prems$UPC_idbr_units)
+
+
+# View total sums of business premises and local units in the UK measured in UPC and each IDBR
+all_prems %>%
+  summarise(sum(idbr_sum_ents),
+            sum(idbr_sum_units),
+            sum(upc_bus_prems))
+# UPC estimates really low, even lower than Code-Point raw data
+
+summary(all_prems)
+
+# save csv
+#write_csv(all_prems, "data/demos/UPC_busprems/all_premises_clean.csv")
+```
