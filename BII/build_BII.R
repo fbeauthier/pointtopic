@@ -4,7 +4,7 @@
 
 # the variables included to construct the BII are queried directly from the:
 # FACT_OPERATOR, UPC_OUTPUT, FACT_POSTCODE_TECH and FACT_SPEED_TEST tables in the Snowflake database
-# see "BII_query_all_in_one.rtf" file in the current directory for the full SQL query
+# see "BII_query_all_in_one.rtf" file in 'BII' directory for the full SQL query
 
 # load packages
 library(tidyverse)
