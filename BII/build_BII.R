@@ -12,9 +12,9 @@ library(tidyverse)
 #setwd("BII/")
 
 # read the query output file (in same directory as this .R file)
-new_bii <- read_csv("BII_query_output.csv")
+new_bii <- read_csv("BII_query_output_July23.csv")
 
-### 1. exploratory data analysis ----------------------------------------------
+### 1. Exploratory Data Analysis ----------------------------------------------
 # is GFAST relevant?
 summary(new_bii$GFAST_AVAILABILITY)
 # plot
@@ -40,52 +40,59 @@ new_bii %>% ggplot(aes(x = OPERATOR_COUNT)) +
   geom_boxplot()
 
 ### 2. creating the index -----------------------------------------------------
+# from the EDA, we choose to drop Gfast as it does not contribute/add much information
+# data suggests almost no one uses Gfast anymore
+new_bii <- dplyr::select(new_bii, -GFAST_AVAILABILITY)
+
 # create empty rank columns for each variable
 new_bii <- mutate(new_bii,
                   fttp_rank = NA,
                   fttc_rank = NA,
-                  gfast_rank = NA,
                   dsl_rank = NA,
                   cable_rank = NA,
                   opscount_rank = NA,
                   down_rank = NA,
                   up_rank = NA)
 
-# from the EDA, we choose to drop Gfast as it does not contribute/add much information 
-new_bii <- dplyr::select(new_bii, -c(GFAST_AVAILABILITY, gfast_rank))
-
 # creating LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
-# 0-1 % availability -- higher is better
+# 0-100 % availability -- higher (more availability) is better
 
 # FTTP
 new_bii$fttp_rank[order(new_bii$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("FTTP_AVAILABILITY", "fttp_rank")]
 
 # FTTC
 new_bii$fttc_rank[order(new_bii$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("FTTC_AVAILABILITY", "fttc_rank")]
 
 # DSL
 new_bii$dsl_rank[order(new_bii$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("DSL_AVAILABILITY", "dsl_rank")]
 
 # Cable
 new_bii$cable_rank[order(new_bii$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("CABLE_AVAILABILITY", "cable_rank")]
 
 
-# LSOA ranking for OPERATOR_COUNT -- higher is better
+# LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
 new_bii$opscount_rank[order(new_bii$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("OPERATOR_COUNT", "opscount_rank")]
 
 
-# LSOA ranking for speed tests -- higher is better
+# LSOA ranking for speed tests -- higher (faster) is better
 # Down_speed
 new_bii$down_rank[order(new_bii$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("DOWN_MBPS", "down_rank")]
 
 # Up_speed
 new_bii$up_rank[order(new_bii$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii)
+# view
 new_bii[,c("UP_MBPS", "up_rank")]
 
 
@@ -93,9 +100,10 @@ new_bii[,c("UP_MBPS", "up_rank")]
 new_bii$rank_sum <- (new_bii$fttp_rank)+(new_bii$fttc_rank)+(new_bii$dsl_rank)+(new_bii$cable_rank)+
   (new_bii$opscount_rank)+(new_bii$down_rank)+(new_bii$up_rank)
 
-# final relative rank: 1 is best (lower overall rank is better)
-new_bii$RANK[order(new_bii$rank_sum)] <- 1:nrow(new_bii)
-
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+new_bii$final_RANK[order(new_bii$rank_sum)] <- 1:nrow(new_bii)
+# should range 1 - 42,617
+summary(new_bii$final_RANK)
 
 # save as .csv
 write_csv(new_bii, "newBII_output2023.csv")
