@@ -9,9 +9,10 @@
 # load packages
 library(tidyverse)
 
-#setwd("BII/")
+# optional -- depends on your working directory
+setwd("BII/")
 
-# read the query output file (in same directory as this .R file)
+# read the query output file (should be in same directory as this .R file)
 new_bii <- read_csv("BII_query_output_July23.csv")
 
 ### 1. Exploratory Data Analysis ----------------------------------------------
