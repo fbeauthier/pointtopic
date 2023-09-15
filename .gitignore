@@ -1,6 +1,3 @@
-# data folder
-data/
-
 # History files
 .Rhistory
 .Rapp.history
@@ -50,7 +47,12 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# data folder
+data/
+
 pointtopic.Rproj
+
 geos/.DS_Store
 geos/
 UPC_IDBR_busprems.html
@@ -79,9 +81,10 @@ translate_geo_function/SOA2011_Esri_Shapefile_0/SOA2011.shp.xml
 translate_geo_function/SOA2011_Esri_Shapefile_0/SOA2011.shx
 translate_geo_function/translate_geo.R
 translate_geo_function/translate_geo_uk.Rproj
+
 BII/newBII_output2023_England.csv
 BII/newBII_output2023_NIreland.csv
 BII/newBII_output2023_Scotland.csv
 BII/newBII_output2023_Wales.csv
-BDDI/.DS_Store
-BDDI/build_BDDI.R
+
+BDDI/data
