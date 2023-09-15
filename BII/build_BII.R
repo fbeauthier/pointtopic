@@ -12,12 +12,12 @@ library(tidyverse)
 # optional -- depends on your working directory
 setwd("~/Desktop/Point-Topic/pointtopic/BII/")
 
-# read the query output file (should be in same directory as this .R file)
-new_bii <- read_csv("BII_query_output_July23.csv")
+# read the query output file
+new_bii <- read_csv("BII_query_output_July2023.csv")
 
 # create new COUNTRY column based on LSOA codes
-new_bii$COUNTRY <- ifelse(grepl('^E', new_bii$LSOA), "England",
-                          ifelse(grepl('^W', new_bii$LSOA), "Wales",
+new_bii$COUNTRY <- ifelse(grepl('^E', new_bii$LSOA), "England", # starts with E
+                          ifelse(grepl('^W', new_bii$LSOA), "Wales", # starts with W
                                  ifelse(grepl('^S', new_bii$LSOA), "Scotland", "Northern Ireland")))
 
 ### 1. Exploratory Data Analysis ----------------------------------------------
@@ -46,7 +46,7 @@ new_bii %>% ggplot(aes(x = OPERATOR_COUNT)) +
   geom_boxplot()
 
 ### 2. creating the index -----------------------------------------------------
-# from the EDA, we choose to drop Gfast as it does not contribute/add much information
+# from the EDA, we choose to drop Gfast as it does not add much information on broadband availability
 # data suggests almost no one uses Gfast anymore
 new_bii <- dplyr::select(new_bii, -GFAST_AVAILABILITY)
 
@@ -184,7 +184,7 @@ summary(new_bii_nireland)
 
 
 # save each nation BII as .csv
-write_csv(new_bii_england, "newBII_output2023_England.csv")
-write_csv(new_bii_wales, "newBII_output2023_Wales.csv")
-write_csv(new_bii_scotland, "newBII_output2023_Scotland.csv")
-write_csv(new_bii_nireland, "newBII_output2023_NIreland.csv")
+write_csv(new_bii_england, "BII_output/newBII_output2023_England.csv")
+write_csv(new_bii_wales, "BII_output/newBII_output2023_Wales.csv")
+write_csv(new_bii_scotland, "BII_output/newBII_output2023_Scotland.csv")
+write_csv(new_bii_nireland, "BII_output/newBII_output2023_NIreland.csv")

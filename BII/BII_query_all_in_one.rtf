@@ -5,18 +5,19 @@
 \paperw11900\paperh16840\margl1440\margr1440\vieww20100\viewh14860\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
 
-\f0\fs24 \cf0 -- all in one\
+\f0\fs30 \cf0 -- all in one\
 \
 with get_geog_columns as (\
     select \
         postcode, \
-        lsoa -- aggregate geography\
-    from ANALYTICS_MAIN.REPORTS.UPC_OUTPUT\
+        lsoa --aggregate geography\
+    from ANALYTICS_MAIN.REPORTS.UPC_OUTPUT_TIME_SERIES\
+    where reported_at = '2023-07-01'\
 ),\
 join_tech_availability as (\
     select \
         postcode,\
-        lsoa, -- aggregate geography\
+        lsoa, --aggregate geography\
         fttp,\
         fttc,\
         gfast,\
@@ -24,8 +25,9 @@ join_tech_availability as (\
         cable,\
         reported_at\
     from get_geog_columns\
-    left join ANALYTICS_MAIN.REPORTS.FACT_POSTCODE_TECH\
+    left join ANALYTICS_MAIN.REPORTS.FACT_POSTCODE_TECH_TIME_SERIES\
     using (postcode)\
+    where reported_at = '2023-07-01'\
 ),\
 aggregate_to_lsoa_tech_availability as (\
     select \
@@ -36,21 +38,20 @@ aggregate_to_lsoa_tech_availability as (\
         avg(dsl) as dsl,\
         avg(cable) as cable\
     from join_tech_availability\
-    group by lsoa -- aggregate geography\
-)\
-,\
+    group by lsoa --aggregate geography\
+),\
 count_per_postcode as (\
     select \
         postcode,\
         count(distinct operator) as operator_count\
-    from ANALYTICS_MAIN.REPORTS.FACT_OPERATOR\
+    from ANALYTICS_MAIN.REPORTS.FACT_OPERATOR_TIME_SERIES\
+    where reported_at = '2023-07-01'\
     group by postcode\
 ),\
-\
 join_operator_count as (\
     select \
         postcode,\
-        lsoa, -- aggregate geography\
+        lsoa, --aggregate geography\
         operator_count\
     from get_geog_columns\
     left join count_per_postcode\
@@ -58,30 +59,30 @@ join_operator_count as (\
 ),\
 aggregate_to_lsoa_operator_count as (\
     select\
-        lsoa, -- aggregate geography\
+        lsoa, --aggregate geography\
         avg(operator_count) as operator_count\
     from join_operator_count\
-    group by lsoa -- aggregate geography\
+    group by lsoa --aggregate geography\
 ),\
-\
 get_speed_tests as (\
     select\
         postcode,\
-        lsoa, -- aggregate geography\
+        lsoa, --aggregate geography\
         avg(down_mbps) as down_mbps,\
         avg(up_mbps) as up_mbps\
-    from ANALYTICS_MAIN.REPORTS.FACT_SPEED_TEST\
+    from ANALYTICS_MAIN.REPORTS.FACT_SPEED_TEST_TIME_SERIES\
     left join get_geog_columns\
     using (postcode)\
+    where reported_at = '2023-07-01'\
     group by postcode, lsoa\
 ),\
 aggregate_to_lsoa_speeds as (\
     select\
-        lsoa, -- aggregate geography\
+        lsoa, --aggregate geography\
         avg(down_mbps) as down_mbps,\
         avg(up_mbps) as up_mbps\
     from get_speed_tests\
-    group by lsoa -- aggregate geography   \
+    group by lsoa --aggregate geography   \
 ),\
 all_in_one as (\
     select\

@@ -53,9 +53,12 @@ data/
 
 pointtopic.Rproj
 
+# geographic boundaries shape files
 geos/.DS_Store
 geos/
+
 UPC_IDBR_busprems.html
+
 translate_geo_function/.DS_Store
 translate_geo_function/geography-sdz2021-esri-shapefile/SDZ2021.cpg
 translate_geo_function/geography-sdz2021-esri-shapefile/SDZ2021.dbf
@@ -82,9 +85,9 @@ translate_geo_function/SOA2011_Esri_Shapefile_0/SOA2011.shx
 translate_geo_function/translate_geo.R
 translate_geo_function/translate_geo_uk.Rproj
 
-BII/newBII_output2023_England.csv
-BII/newBII_output2023_NIreland.csv
-BII/newBII_output2023_Scotland.csv
-BII/newBII_output2023_Wales.csv
+# BII output files
+BII/BII_output
 
+# BDDI data files
 BDDI/data
+BII/BII_query_output_July2023.csv
