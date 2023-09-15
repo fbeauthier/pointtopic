@@ -10,10 +10,15 @@
 library(tidyverse)
 
 # optional -- depends on your working directory
-setwd("BII/")
+setwd("~/Desktop/Point-Topic/pointtopic/BII/")
 
 # read the query output file (should be in same directory as this .R file)
 new_bii <- read_csv("BII_query_output_July23.csv")
+
+# create new COUNTRY column based on LSOA codes
+new_bii$COUNTRY <- ifelse(grepl('^E', new_bii$LSOA), "England",
+                          ifelse(grepl('^W', new_bii$LSOA), "Wales",
+                                 ifelse(grepl('^S', new_bii$LSOA), "Scotland", "Northern Ireland")))
 
 ### 1. Exploratory Data Analysis ----------------------------------------------
 # is GFAST relevant?
@@ -55,56 +60,131 @@ new_bii <- mutate(new_bii,
                   down_rank = NA,
                   up_rank = NA)
 
-# creating LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
+# create new tables for each nation
+# England
+new_bii_england <- filter(new_bii, COUNTRY == 'England')
+# Wales
+new_bii_wales <- filter(new_bii, COUNTRY == 'Wales')
+# Scotland
+new_bii_scotland <- filter(new_bii, COUNTRY == 'Scotland')
+# Northern Ireland
+new_bii_nireland <- filter(new_bii, COUNTRY == 'Northern Ireland')
+
+# FOR EACH NATION: creating LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
 # 0-100 % availability -- higher (more availability) is better
 
 # FTTP
-new_bii$fttp_rank[order(new_bii$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("FTTP_AVAILABILITY", "fttp_rank")]
+# England
+new_bii_england$fttp_rank[order(new_bii_england$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$fttp_rank[order(new_bii_wales$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$fttp_rank[order(new_bii_scotland$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$fttp_rank[order(new_bii_nireland$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
+
 
 # FTTC
-new_bii$fttc_rank[order(new_bii$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("FTTC_AVAILABILITY", "fttc_rank")]
+# England
+new_bii_england$fttc_rank[order(new_bii_england$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$fttc_rank[order(new_bii_wales$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$fttc_rank[order(new_bii_scotland$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$fttc_rank[order(new_bii_nireland$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
+
 
 # DSL
-new_bii$dsl_rank[order(new_bii$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("DSL_AVAILABILITY", "dsl_rank")]
+# England
+new_bii_england$dsl_rank[order(new_bii_england$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$dsl_rank[order(new_bii_wales$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$dsl_rank[order(new_bii_scotland$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$dsl_rank[order(new_bii_nireland$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
+
 
 # Cable
-new_bii$cable_rank[order(new_bii$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("CABLE_AVAILABILITY", "cable_rank")]
+# England
+new_bii_england$cable_rank[order(new_bii_england$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$cable_rank[order(new_bii_wales$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$cable_rank[order(new_bii_scotland$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$cable_rank[order(new_bii_nireland$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
 
 
-# LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
-new_bii$opscount_rank[order(new_bii$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("OPERATOR_COUNT", "opscount_rank")]
+# FOR EACH NATION: LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
+# England
+new_bii_england$opscount_rank[order(new_bii_england$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$opscount_rank[order(new_bii_wales$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$opscount_rank[order(new_bii_scotland$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$opscount_rank[order(new_bii_nireland$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
 
 
-# LSOA ranking for speed tests -- higher (faster) is better
+# FOR EACH NATION: LSOA ranking for speed tests -- higher (faster) is better
 # Down_speed
-new_bii$down_rank[order(new_bii$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("DOWN_MBPS", "down_rank")]
+# England
+new_bii_england$down_rank[order(new_bii_england$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$down_rank[order(new_bii_wales$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$down_rank[order(new_bii_scotland$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$down_rank[order(new_bii_nireland$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
 
 # Up_speed
-new_bii$up_rank[order(new_bii$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii)
-# view
-new_bii[,c("UP_MBPS", "up_rank")]
+# England
+new_bii_england$up_rank[order(new_bii_england$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$up_rank[order(new_bii_wales$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$up_rank[order(new_bii_scotland$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$up_rank[order(new_bii_nireland$UP_MBPS, decreasing = TRUE)] <- 1:nrow(new_bii_nireland)
 
 
-# create column for total sum of ranks for each LSOA
-new_bii$rank_sum <- (new_bii$fttp_rank)+(new_bii$fttc_rank)+(new_bii$dsl_rank)+(new_bii$cable_rank)+
-  (new_bii$opscount_rank)+(new_bii$down_rank)+(new_bii$up_rank)
 
-# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
-new_bii$final_RANK[order(new_bii$rank_sum)] <- 1:nrow(new_bii)
-# should range 1 - 42,617
-summary(new_bii$final_RANK)
+# FOR EACH NATION: create column for total sum of ranks for each LSOA
+# England
+new_bii_england$rank_sum <- (new_bii_england$fttp_rank)+(new_bii_england$fttc_rank)+(new_bii_england$dsl_rank)+
+  (new_bii_england$cable_rank)+(new_bii_england$opscount_rank)+(new_bii_england$down_rank)+(new_bii_england$up_rank)
+# Wales
+new_bii_wales$rank_sum <- (new_bii_wales$fttp_rank)+(new_bii_wales$fttc_rank)+(new_bii_wales$dsl_rank)+
+  (new_bii_wales$cable_rank)+(new_bii_wales$opscount_rank)+(new_bii_wales$down_rank)+(new_bii_wales$up_rank)
+# Scotland
+new_bii_scotland$rank_sum <- (new_bii_scotland$fttp_rank)+(new_bii_scotland$fttc_rank)+(new_bii_scotland$dsl_rank)+
+  (new_bii_scotland$cable_rank)+(new_bii_scotland$opscount_rank)+(new_bii_scotland$down_rank)+(new_bii_scotland$up_rank)
+# Northern Ireland
+new_bii_nireland$rank_sum <- (new_bii_nireland$fttp_rank)+(new_bii_nireland$fttc_rank)+(new_bii_nireland$dsl_rank)+
+  (new_bii_nireland$cable_rank)+(new_bii_nireland$opscount_rank)+(new_bii_nireland$down_rank)+(new_bii_nireland$up_rank)
 
-# save as .csv
-write_csv(new_bii, "newBII_output2023.csv")
+
+# FOR EACH NATION: use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+# England
+new_bii_england$final_RANK[order(new_bii_england$rank_sum)] <- 1:nrow(new_bii_england)
+# Wales
+new_bii_wales$final_RANK[order(new_bii_wales$rank_sum)] <- 1:nrow(new_bii_wales)
+# Scotland
+new_bii_scotland$final_RANK[order(new_bii_scotland$rank_sum)] <- 1:nrow(new_bii_scotland)
+# Northern Ireland
+new_bii_nireland$final_RANK[order(new_bii_nireland$rank_sum)] <- 1:nrow(new_bii_nireland)
+
+# summaries of each nation BII
+summary(new_bii_england)
+summary(new_bii_wales)
+summary(new_bii_scotland)
+summary(new_bii_nireland)
+
+
+# save each nation BII as .csv
+write_csv(new_bii_england, "newBII_output2023_England.csv")
+write_csv(new_bii_wales, "newBII_output2023_Wales.csv")
+write_csv(new_bii_scotland, "newBII_output2023_Scotland.csv")
+write_csv(new_bii_nireland, "newBII_output2023_NIreland.csv")
