@@ -15,7 +15,7 @@
 
 
 ## Data sources ## ------------------------------------------------------------
-# Note: the data files for this version are included in the repo (zipped), sources + links are provided for future reference
+# Note: the data files for this version are NOT included in the repo, sources + links are provided for future reference
 
 # 1. England and Wales Census 2021 populations and households:
 # "Number of usual residents" (TS001) and "Number of Households" (TS041) https://www.nomisweb.co.uk/census/2021/bulk 
@@ -95,7 +95,9 @@
 # Census 2021 Super Data Zone
 # https://build.nisra.gov.uk/en/custom/dataset
 
-# 12. N Ireland Income Deprivation?
+# 12. Northern Ireland Multiple Deprivation Measure 2017 (NIMDM2017)
+# https://www.nisra.gov.uk/publications/nimdm17-soa-level-results
+# NIMDM 2017 - SOA level Results (Excel)
 
 
 ### Environment ---------------------------------------------------------------
@@ -286,4 +288,3 @@ filter(scotland, households > population) # just one DZ: S01010283
 ### 4. Join all data ----------------------------------------------------------
 
 # read in the BII
-bii <- read_csv("newBII_output2023.csv")
