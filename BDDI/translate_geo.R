@@ -3,8 +3,7 @@
 
 # required packages
 library(tidyverse)
-library(rgdal)  
-library(terra)
+library(rgdal)
 library(raster) 
 library(sf)
 library(st)

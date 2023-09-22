@@ -110,7 +110,6 @@ library(qacEDA)
 setwd("~/Desktop/Point-Topic/pointtopic/BDDI/")
 
 # all subsequent file paths follow from the "data" directory
-### 0. geography boundaries function ------------------------------------------
 
 ### 1. England + Wales --------------------------------------------------------
 # There are 33,755 LSOAs in England and 1,917 in Wales
@@ -285,6 +284,93 @@ filter(scotland, households > population) # just one DZ: S01010283
 ### 3. N Ireland --------------------------------------------------------------
 
 
-### 4. Join all data ----------------------------------------------------------
+### 4. geography boundaries function ------------------------------------------
+# England, Wales and Northern Ireland datasets require geography translations from old to new boundaries
+
+# required packages
+library(rgdal)
+library(raster)
+library(sf)
+library(st)
+library(shapefiles)
+
+# translate_geo function to translate old boundaries to new boundaries
+# the function requires 3 inputs: old boundaries, new boundaries and postcodes, all as .shp
+translate_geo <- function(old, new, postcodes){
+  # make sure CRS for all three datasets are equal
+  sf_use_s2(FALSE)
+  old <- st_transform(old, crs = 4326)
+  new <- st_transform(new, crs = 4326)
+  postcodes <- st_transform(postcodes, crs = 4326)
+  
+  # get number of postcodes in new boundaries
+  # st_join postcodes in new boundaries
+  new_w_postcodes <- st_join(new[new_code_col], postcodes[pcd_col])
+  # sum of postcodes in each new boundary
+  new_postcode_count <- new_w_postcodes %>%
+    as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
+    dplyr::select(1,2) %>%  # select only code and postcode cols by index
+    group_by_at(1) %>%  # group by area code
+    summarise(sum_new_postcodes = n()) %>%
+    ungroup()
+  
+  # intersection of old boundaries and new boundaries using st_intersection() function
+  # returns the intersection polygon for each old boundary part within a new boundary
+  new_w_old <- st_intersection(new[new_code_col], old[old_code_col])
+  # modify geometry to uniform type: simple polygons
+  new_w_old$geometry <- st_cast(new_w_old$geometry, "POLYGON")
+  # save shapefile if wanted
+  #st_write(new_w_old, "[filepath/filename].shp")
+  
+  # left-join postcodes found in each intersection area
+  print(st_crs(new_w_old) == st_crs(postcodes)) # check Coordinate Reference System matches
+  new_w_old_postcodes <- st_join(new_w_old, postcodes[pcd_col])
+  
+  # count number of postcodes in each intersection area (old boundaries parts within new boundary)
+  new_w_old_postcodes <- new_w_old_postcodes %>%
+    as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
+    dplyr::select(1, 2, 3) %>%  # select new boundary, old boundary and postcode columns by index
+    group_by(across(c(1,2))) %>%   # group by new boundary code, old boundary code
+    summarise(old_in_new_postcodes = n()) %>%
+    ungroup()
+  
+  # create new table of proportion of postcodes in old boundaries parts as total postcodes new boundary
+  proportions <- new_postcode_count %>%
+    left_join(y = new_w_old_postcodes, by = new_code_col) %>%
+    mutate(prop = old_in_new_postcodes/sum_new_postcodes)
+  
+  return(proportions)
+}
+
+# read in postcodes and boundaries shapefiles (for all UK)
+# https://statistics.ukdataservice.ac.uk/dataset/2011-census-geography-boundaries-lower-layer-super-output-areas-and-data-zones
+# old boundaries
+all_old <- st_read("data/geos/infuse_lsoa_lyr_2011/infuse_lsoa_lyr_2011.shp")
+# keep only relevant columns: boundary code
+all_old <- dplyr::select(all_old, 1)
+
+# create new "country" column based on LSOA codes
+all_old$country <- ifelse(grepl('^E', all_old$geo_code), "England", # starts with E
+                          ifelse(grepl('^W', all_old$geo_code), "Wales", # starts with W
+                                 ifelse(grepl('^S', all_old$geo_code), "Scotland", "Northern Ireland"))) # starts with S, else N-Ireland
+
+# old England boundaries
+old_E <- filter(all_old, country == 'England')
+# old Wales boundaries
+old_W <- filter(all_old, country == 'Wales')
+# old N Ireland boundaries
+old_NI <- filter(all_old, country == 'Northern Ireland')
+
+# new boundaries
+new <- st_read("")
+new <- st_read("")
+
+
+# England and Wales postcodes
+
+# N Ireland postcodes
+
+
+### 5. Join all data ----------------------------------------------------------
 
 # read in the BII
