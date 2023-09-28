@@ -113,7 +113,7 @@ setwd("~/Desktop/Point-Topic/pointtopic/BDDI/")
 
 ### 1. England + Wales --------------------------------------------------------
 # There are 33,755 LSOAs in England and 1,917 in Wales
-# https://www.ons.gov.uk/methodology/geography/ukgeographies/censusgeographies/census2021geographies
+# https://www.ons.gov.uk/methodology/geography/ukgeographies/censusgeographies/census2021geographies 
 # Census variables: total population and households, age, education, children, disability, housing
 
 # read population data
@@ -164,12 +164,12 @@ age <- age %>%
 # select over 65 population count (over65_flag == 1), left join to each of England and Wales
 england <- age %>%
   filter(over65_flag == 1) %>%
-  select(1,3) %>% # drop flag column
+  dplyr::select(1,3) %>% # drop flag column
   left_join(x=england, by = "LSOA")
 
 wales <- age %>%
   filter(over65_flag == 1) %>%
-  select(1,3) %>% # drop flag column
+  dplyr::select(1,3) %>% # drop flag column
   left_join(x=wales, by = "LSOA")
 
 summary(england)
@@ -182,23 +182,108 @@ wales$prop_over65 <- (wales$over65_pop)/(wales$population)
 # b. Education
 education <- read_csv("data/Eng_Wales/age_edu.csv")
 
-# create over16 population per LSOA for each of England and Wales
+# create over16 population variable per LSOA for each of England and Wales
 # create 16y+ binary column, returns 1 if over 16y, 0 otherwise
 education$over16_flag <- ifelse(education$`Age (D) (8 categories) Code` == 1, 0, 1)
 
+# England
 england <- education %>%
-  rename(LSOA = 1) %>%
+  rename(LSOA = 1) %>%  # rename LSOA code column
+  dplyr::select(1,8,7) %>%
   group_by(LSOA, over16_flag) %>%
   summarise(over16_pop = sum(Observation)) %>% # sum for over 16y population
-  filter(over16_flag == 1)  %>% # select only over 16y population count (over16_flag == 1)
-  select(1,3) %>% # drop flag column
-  left_join(x = england, )
+  filter(over16_flag == 1) %>%  # select only over 16y population count (over16_flag == 1)
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = england, by = "LSOA")
+
+# Wales
+wales <- education %>%
+  rename(LSOA = 1) %>%  # rename LSOA code column
+  dplyr::select(1,8,7) %>%
+  group_by(LSOA, over16_flag) %>%
+  summarise(over16_pop = sum(Observation)) %>% # sum for over 16y population
+  filter(over16_flag == 1) %>%  # select only over 16y population count (over16_flag == 1)
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = wales, by = "LSOA")
+
+# create over16 population w/o qualifications per LSOA for each of England and Wales
+# returns 1 if over 16y w/o qualifications, 0 otherwise
+# omits "does not apply"
+education$over16_noquals <- ifelse((education$over16_flag == 1 & education$`Highest level of qualification (7 categories) Code` %in% c(0,1,2)),
+                                   1, 0)
+
+# left join to England
+england <- education %>%
+  rename(LSOA = 1) %>%  # rename LSOA code column
+  dplyr::select(1,9,7) %>%
+  group_by(LSOA, over16_noquals) %>%
+  summarise(over16_noqual_pop = sum(Observation)) %>% # sum for over 16y population w/o qualifications
+  filter(over16_noquals == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = england, by = "LSOA")
+
+# left join to Wales
+wales <- education %>%
+  rename(LSOA = 1) %>%  # rename LSOA code column
+  dplyr::select(1,9,7) %>%
+  group_by(LSOA, over16_noquals) %>%
+  summarise(over16_noqual_pop = sum(Observation)) %>% # sum for over 16y population w/o qualifications
+  filter(over16_noquals == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = wales, by = "LSOA")
+
+# create proportion of over16 population w/o qualifications
+# England
+england$prop_over16s_noquals <- (england$over16_noqual_pop)/(england$over16_pop)
+# Wales
+wales$prop_over16s_noquals <- (wales$over16_noqual_pop)/(wales$over16_pop)
+
 
 # c. Disability
+disability <- read_csv("data/Eng_Wales/disability.csv")
+str(disability)
+
+# create "disabled" binary column, returns 1 if disabled, 0 otherwise
+disability$disability_flag <- ifelse(disability$`Disability (3 categories) Code` == 1, 1, 0)
+
+# group by LSOA, disability
+disability <- disability %>%
+  rename(LSOA = 1) %>% # rename LSOA column
+  dplyr::select(1,6,5) %>%
+  group_by(LSOA, disability_flag) %>%
+  summarise(disabled_pop = sum(Observation)) %>%
+  ungroup()
+
+# select disabled population count (disability_flag == 1), left join to each of England and Wales
+england <- disability %>%
+  filter(disability_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=england, by = "LSOA")
+
+wales <- disability %>%
+  filter(disability_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=wales, by = "LSOA")
+
+# create proportion of disabled population
+# England
+england$prop_disabled <- (england$disabled_pop)/(england$population)
+# Wales
+wales$prop_disabled <- (wales$disabled_pop)/(wales$population)
+
 
 # d. Children
+hh_children <- read_csv("data/Eng_Wales/hh_children.csv")
+str(hh_children)
+
+# create "children" binary column, returns 1 if household has children, 0 otherwise
+hh_children$children_flag <- ifelse(hh_children$`Dependent children in household and their age - indicator (3 categories) Code` == 1,
+                                    1, 0)
+
 
 # e. Housing
+housing <- read_csv("data/Eng_Wales/hh_housing.csv")
+
 
 # f. Income deprivation
 # England
@@ -294,18 +379,21 @@ library(sf)
 library(st)
 library(shapefiles)
 
-# translate_geo function to translate old boundaries to new boundaries
+# translate_geo function to translate old boundaries to new boundaries using proportion of postcodes
 # the function requires 3 inputs: old boundaries, new boundaries and postcodes, all as .shp
 translate_geo <- function(old, new, postcodes){
   # make sure CRS for all three datasets are equal
+  # coerce old and new boundaries to "POLYGON"
   sf_use_s2(FALSE)
-  old <- st_transform(old, crs = 4326)
-  new <- st_transform(new, crs = 4326)
+  old <- st_cast(st_transform(old, crs = 4326), "POLYGON")
+  new <- st_cast(st_transform(new, crs = 4326), "POLYGON")
   postcodes <- st_transform(postcodes, crs = 4326)
   
   # get number of postcodes in new boundaries
   # st_join postcodes in new boundaries
-  new_w_postcodes <- st_join(new[new_code_col], postcodes[pcd_col])
+  new_w_postcodes <- st_join(new[new_code_col], postcodes[pcd_col]) # "new_code_col" and "pcd_col" need to be defined in global environment
+  #print(new_w_postcodes)
+  
   # sum of postcodes in each new boundary
   new_postcode_count <- new_w_postcodes %>%
     as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
@@ -313,38 +401,65 @@ translate_geo <- function(old, new, postcodes){
     group_by_at(1) %>%  # group by area code
     summarise(sum_new_postcodes = n()) %>%
     ungroup()
+  #print(new_postcode_count)
   
   # intersection of old boundaries and new boundaries using st_intersection() function
   # returns the intersection polygon for each old boundary part within a new boundary
   new_w_old <- st_intersection(new[new_code_col], old[old_code_col])
-  # modify geometry to uniform type: simple polygons
-  new_w_old$geometry <- st_cast(new_w_old$geometry, "POLYGON")
+  #print(new_w_old)
+  
   # save shapefile if wanted
   #st_write(new_w_old, "[filepath/filename].shp")
   
   # left-join postcodes found in each intersection area
-  print(st_crs(new_w_old) == st_crs(postcodes)) # check Coordinate Reference System matches
+  print(paste("CRS matches:", st_crs(new_w_old) == st_crs(postcodes))) # check Coordinate Reference System matches
   new_w_old_postcodes <- st_join(new_w_old, postcodes[pcd_col])
+  #print(new_w_old_postcodes)
   
   # count number of postcodes in each intersection area (old boundaries parts within new boundary)
   new_w_old_postcodes <- new_w_old_postcodes %>%
     as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
-    dplyr::select(1, 2, 3) %>%  # select new boundary, old boundary and postcode columns by index
-    group_by(across(c(1,2))) %>%   # group by new boundary code, old boundary code
+    dplyr::select(new_code_col, old_code_col, pcd_col) %>%  # select new boundary, old boundary and postcode columns
+    group_by(across(c(1, 2))) %>%   # group by new boundary code, old boundary code indexes
     summarise(old_in_new_postcodes = n()) %>%
     ungroup()
+  #print(new_w_old_postcodes)
   
   # create new table of proportion of postcodes in old boundaries parts as total postcodes new boundary
   proportions <- new_postcode_count %>%
     left_join(y = new_w_old_postcodes, by = new_code_col) %>%
-    mutate(prop = old_in_new_postcodes/sum_new_postcodes)
+    mutate(prop = old_in_new_postcodes/sum_new_postcodes,
+           prop = round(prop, digits = 3))
+  #print(proportions)
   
   return(proportions)
 }
 
-# read in postcodes and boundaries shapefiles (for all UK)
+## read new boundaries shapefiles
+# obtained for England and Wales from: https://geoportal.statistics.gov.uk/datasets/766da1380a3544c5a7ca9131dfd4acb6/explore
+# (shapefile)
+# obtained for Northern Ireland from: https://www.nisra.gov.uk/publications/geography-super-data-zone-boundaries-gis-format
+# (ESRI shapefile)
+
+# England and Wales
+new <- st_read("data/geos/Eng_Wales_LSOA_2021_Boundaries/LSOA_2021_EW_BGC.shp")
+# keep only relevant columns: boundary code
+new <- dplyr::select(new, 1)
+
+# create new "country" column based on LSOA codes
+new$country <- ifelse(grepl('^E', new$LSOA21CD), "England", "Wales")
+
+# new England boundaries
+new_E <- filter(new, country == 'England')
+# new Wales boundaries
+new_W <- filter(new, country == 'Wales')
+
+# N Ireland
+new_NI <- st_read("data/geos/NI-sdz2021-esri-shapefile/SDZ2021.shp")
+
+# read old boundaries shapefiles (for all UK)
 # https://statistics.ukdataservice.ac.uk/dataset/2011-census-geography-boundaries-lower-layer-super-output-areas-and-data-zones
-# old boundaries
+# Features in Shapefile format
 all_old <- st_read("data/geos/infuse_lsoa_lyr_2011/infuse_lsoa_lyr_2011.shp")
 # keep only relevant columns: boundary code
 all_old <- dplyr::select(all_old, 1)
@@ -361,16 +476,74 @@ old_W <- filter(all_old, country == 'Wales')
 # old N Ireland boundaries
 old_NI <- filter(all_old, country == 'Northern Ireland')
 
-# new boundaries
-new <- st_read("")
-new <- st_read("")
 
+# read postcodes .csv for all UK from P-T UPC time-series table
+# all new boundaries for England, Wales and N Ireland in 2021: selected end year 2021 from UPC using SQL query (see .rtf file):
+postcodes <- read_csv("data/PT_UPC_postcodes_Dec2021.csv")
+summary(postcodes)
 
-# England and Wales postcodes
+# NSPL 2021 provides longitude & latitude for postcodes
+# obtained at: https://geoportal.statistics.gov.uk/datasets/national-statistics-postcode-lookup-2021-census-november-2022/about
+nspl21 <- read_csv("data/geos/NSPL21_NOV_2022_UK/Data/NSPL21_NOV_2022_UK.csv")
 
+# left join long & lat using pcds
+postcodes <- nspl21 %>%
+  dplyr::select(pcds, lat, long) %>%
+  left_join(x = postcodes, by = c("POSTCODE" = "pcds"))
+# check NA's
+summary(postcodes)
+
+# convert postcodes to sf using st_as_sf()
+# X is longitude, Y is latitude
+postcodes_sf <- st_as_sf(postcodes[c(1,4,5,6)], coords = c("long", "lat"), crs = 4326)
+# save as shapefile
+#st_write(postcodes_sf, "data/geos/postcodes_shapefile/UK_postcodes_2021.shp")
+
+# England postcodes
+postcodes_sf_E <- filter(postcodes_sf, COUNTRY == 'England')
+# Wales postcodes
+postcodes_sf_W <- filter(postcodes_sf, COUNTRY == 'Wales')
 # N Ireland postcodes
+postcodes_sf_NI <- filter(postcodes_sf, COUNTRY == 'Northern Ireland')
+
+# # view map
+# library(tmap)
+# tmap_mode("view")
+# tm_shape(postcodes_sf_NI) + tm_dots()
+
+
+## get England table
+old_code_col = "geo_code"
+# insert new boundaries code column
+new_code_col = "LSOA21CD"
+# insert postcodes code column
+pcd_col = "POSTCODE"
+
+translate_england <- translate_geo(old_E, new_E, postcodes_sf_E)
+write_csv(translate_england, "data/translate_england.csv")
+
+## get Wales table
+old_code_col = "geo_code"
+# insert new boundaries code column
+new_code_col = "LSOA21CD"
+# insert postcodes code column
+pcd_col = "POSTCODE"
+
+translate_wales <- translate_geo(old_W, new_W, postcodes_sf_W)
+write_csv(translate_wales, "data/translate_wales.csv")
+
+
+## get Northern Ireland table
+old_code_col = "geo_code"
+# insert new boundaries code column
+new_code_col = "SDZ2021_cd"
+# insert postcodes code column
+pcd_col = "POSTCODE"
+
+translate_nire <- translate_geo(old_NI, new_NI, postcodes_sf_NI)
+write_csv(translate_nire, "data/translate_nireland.csv")
 
 
 ### 5. Join all data ----------------------------------------------------------
 
-# read in the BII
+# read in the BII files
