@@ -1,5 +1,5 @@
 ### This R file contains the code to construct the updated Broadband Digital Deprivation Index (BDDI)
-# new BDDI 2023 for ALL UK
+# new BDDI 2021/2022 for ALL UK
 # this is a relative index, i.e., we do not calculate raw 'scores', only rank LSOAs relative to each other
 
 # Geographic areas we use:
@@ -21,7 +21,7 @@
 # "Number of usual residents" (TS001) and "Number of Households" (TS041) https://www.nomisweb.co.uk/census/2021/bulk 
 
 # 2. England and Wales Census 2021:
-# i. Residents: age - (D) (8 categories), education + age - Age (D) (8 categories) and Highest level of qualification (7 categories), disability - Disability (3 categories)
+# i. Residents: Age - (D) (8 categories), Education & Age - Age (4 categories - Option 1) and Highest level of qualification (7 categories), disability - Disability (3 categories)
 # ii. Households: presence of children - Dependent children in household and their age - indicator (3 categories), tenure (social housing) - Tenure of household (5 categories)
 # custom datasets for each item need to be downloaded one by one: https://www.ons.gov.uk/datasets/create
 # choose Coverage: England + Wales and Area Type: LSOAs
@@ -172,19 +172,16 @@ wales <- age %>%
   dplyr::select(1,3) %>% # drop flag column
   left_join(x=wales, by = "LSOA")
 
-summary(england)
-summary(wales)
-
 # create proportion of population over 65 per LSOA for each of England and Wales
 england$prop_over65 <- (england$over65_pop)/(england$population)
 wales$prop_over65 <- (wales$over65_pop)/(wales$population)
 
 # b. Education
-education <- read_csv("data/Eng_Wales/age_edu.csv")
-
+education <- read_csv("data/Eng_Wales/age_edu_v2.csv")
+str(education)
 # create over16 population variable per LSOA for each of England and Wales
 # create 16y+ binary column, returns 1 if over 16y, 0 otherwise
-education$over16_flag <- ifelse(education$`Age (D) (8 categories) Code` == 1, 0, 1)
+education$over16_flag <- ifelse(education$`Age (4 categories) Code` == 1, 0, 1)
 
 # England
 england <- education %>%
@@ -280,40 +277,98 @@ str(hh_children)
 hh_children$children_flag <- ifelse(hh_children$`Dependent children in household and their age - indicator (3 categories) Code` == 1,
                                     1, 0)
 
+# group by LSOA, "children' flag
+hh_children <- hh_children %>%
+  rename(LSOA = 1) %>% # rename LSOA column
+  dplyr::select(1,6,5) %>%
+  group_by(LSOA, children_flag) %>%
+  summarise(hh_w_children = sum(Observation)) %>%
+  ungroup()
+
+# select households with children count (children_flag == 1), left join to each of England and Wales
+england <- hh_children %>%
+  filter(children_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=england, by = "LSOA")
+
+wales <- hh_children %>%
+  filter(children_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=wales, by = "LSOA")
+
+# create proportion of households with children
+# England
+england$prop_hh_children <- (england$hh_w_children)/(england$households)
+# Wales
+wales$prop_hh_children <- (wales$hh_w_children)/(wales$households)
+
 
 # e. Housing
 housing <- read_csv("data/Eng_Wales/hh_housing.csv")
 
+# create housing binary column, returns 1 if household rents in social housing, 0 otherwise
+housing$housing_flag <- ifelse(housing$`Tenure of household (5 categories) Code` == 2, 1, 0)
+
+# group by LSOA, "housing' flag
+housing <- housing %>%
+  rename(LSOA = 1) %>% # rename LSOA column
+  dplyr::select(1,6,5) %>%
+  group_by(LSOA, housing_flag) %>%
+  summarise(hh_social_rented = sum(Observation)) %>%
+  ungroup()
+
+# select social housing count (housing_flag == 1), left join to each of England and Wales
+england <- housing %>%
+  filter(housing_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=england, by = "LSOA")
+
+wales <- housing %>%
+  filter(housing_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x=wales, by = "LSOA")
+
+# create proportion of households in social housing
+# England
+england$prop_hh_sochousing <- (england$hh_social_rented)/(england$households)
+# Wales
+wales$prop_hh_sochousing <- (wales$hh_social_rented)/(wales$households)
+
 
 # f. Income deprivation
 # England
-eng_inc <- readxl::read_xlsx("data/Eng_Wales/File_5_-_IoD2019_Scores.xlsx", sheet = "IoD2019 Scores")
+eng_inc_dep <- readxl::read_xlsx("data/Eng_Wales/File_5_-_IoD2019_Scores.xlsx", sheet = "IoD2019 Scores")
 
-eng_inc <- eng_inc %>%
-  select(1, 6) %>% # select only relevant columns using indices
+eng_inc_dep <- eng_inc_dep %>%
+  dplyr::select(1, 6) %>% # select only relevant columns using indices
   rename(LSOA = 1, inc_dep_rate = 2) # rename columns
 
-summary(eng_inc)
+summary(eng_inc_dep)
 # view distribution
-eng_inc %>% ggplot(aes(x = inc_dep_rate)) +
-  geom_density()
+eng_inc_dep %>% ggplot(aes(x = inc_dep_rate)) +
+  geom_density() + geom_vline(xintercept = 0.1282)
 
 # Wales
-wales_inc <- readxl::read_xlsx("data/Eng_Wales/wimd-2019-index-and-domain-scores-by-small-area.xlsx", sheet = "Data")
+wales_inc_dep <- readxl::read_xlsx("data/Eng_Wales/wimd-2019-index-and-domain-scores-by-small-area.xlsx", sheet = "Data")
 
-wales_inc <- wales_inc %>%
+wales_inc_dep <- wales_inc_dep %>%
   rename(LSOA = 1, inc_dep_rate = 5) %>% # rename LSOA and income deprivation columns
-  select(LSOA, inc_dep_rate) # select only relevant columns
+  dplyr::select(LSOA, inc_dep_rate) # select only relevant columns
 
-wales_inc <- wales_inc[4:nrow(wales_inc),] # select relevant rows 
-summary(wales_inc)
-
+str(wales_inc_dep)
 # income deprivation to numeric
-wales_inc$inc_dep_rate <- as.numeric(wales_inc$inc_dep_rate)
+wales_inc_dep$inc_dep_rate <- as.numeric(wales_inc_dep$inc_dep_rate)
+
+wales_inc_dep <- wales_inc_dep[4:nrow(wales_inc_dep),] # select relevant rows: starting row 4
+summary(wales_inc_dep)
 
 # view distribution
-wales_inc %>% ggplot(aes(x = inc_dep_rate)) +
-  geom_density()
+wales_inc_dep %>% ggplot(aes(x = inc_dep_rate)) +
+  geom_density() + geom_vline(xintercept = 21.7158)
+
+summary(england)
+summary(wales)
+# finish pre-processing in section 5 #
 
 ### 2. Scotland ---------------------------------------------------------------
 # Scotland 2011 Data Zones: 6,976
@@ -322,24 +377,25 @@ wales_inc %>% ggplot(aes(x = inc_dep_rate)) +
 sc_households <- readxl::read_xlsx("data/Scotland/hh-est-by-2011-dz-small-area-14-22.xlsx", sheet = "2021")
 
 sc_households <- sc_households %>%
-  select(1, 6) %>% # select only relevant columns by index
+  dplyr::select(1, 6) %>% # select only relevant columns by index
   rename(DZ_code = 1, households = 2) # rename DZ and households columns
 
-sc_households <- sc_households[4:nrow(sc_households),] # select relevant rows
+sc_households <- sc_households[4:nrow(sc_households),] # select relevant rows: starting row 4
 
 # check class type
 str(sc_households)
 # convert household count to numeric
 sc_households$households <- as.numeric(sc_households$households)
 
-# Scotland small area population estimates: population and age
+
+# Scotland Small Area Population Estimates (SAPE) 2021: population and age
 sc_population <- readxl::read_xlsx("data/Scotland/sape-2021.xlsx", sheet = "Persons")
 
 sc_population <- sc_population %>%
   rename(DZ_code = 1, population = 5, age_65 = 71) %>% # rename DZ, population and age 65 columns
-  select(c(1, 5, 71:ncol(sc_population))) # select relevant columns
+  dplyr::select(c(1, 5, 71:ncol(sc_population))) # select relevant columns
 
-sc_population <- sc_population[4:nrow(sc_population),] # select relevant rows
+sc_population <- sc_population[4:nrow(sc_population),] # select relevant rows: starting row 4
 
 # check class type
 str(sc_population)
@@ -347,203 +403,766 @@ str(sc_population)
 sc_population[2:ncol(sc_population)] <- lapply(sc_population[2:ncol(sc_population)], as.numeric)
 
 # new column: over 65 population count - using rowSums()
-sc_population$over65_pop <- rowSums(sc_population[,3:ncol(sc_population)])
+sc_population$over65_pop <- rowSums(sc_population[,3:28])
 
-# keep only relevant columns - by index
-sc_population <- select(sc_population, 1, 2, 29)
+# keep only relevant columns
+sc_population <- dplyr::select(sc_population,
+                        DZ_code, population, over65_pop)
 
-# new table: left-join with households table
-scotland <- left_join(sc_population, sc_households, by = "DZ_code")
+# new Scotland table: left-join with households table
+scotland <- left_join(sc_households, sc_population, by = "DZ_code")
 summary(scotland)
 
 # check there aren't more households than population in each DZ
-# returns 1 if households > population (wrong)
+# returns 1 if households > population
 unique(ifelse(scotland$households > scotland$population, 1, 0))
 
-# view DZ's where households > population
+# view where households > population
 filter(scotland, households > population) # just one DZ: S01010283
 
-# Demographic variables
-# Education
+## Demographic variables
+# a. Age: proportion population over 65
+scotland$prop_over65 <- (scotland$over65_pop)/(scotland$population)
+
+# b. Education
+# [file]_v2 is transformed to CSV UTF-8 (comma-delimited .csv) for easier readability
+sc_education <- read_csv("data/Scotland/table_2023-09-08_education_v2.csv")
+
+sc_education <- sc_education %>%
+  dplyr::select(3:7) %>% # select only relevant columns by index
+  rename(DZ_code = 1, sex = 2, age = 3, highest_level_edu = 4, count = 5) # rename columns
+
+sc_education <- sc_education[12:nrow(sc_education),] # select relevant rows: starting row 12
+unique(sc_education$sex)
+# filter out gender
+sc_education <- filter(sc_education, sex == "All people aged 16 and over:")
+
+# check class type
+str(sc_education)
+
+# get total over16 population
+scotland <- sc_education %>%
+  filter(age == "Total", highest_level_edu == "All people aged 16 and over") %>%
+  rename(over16_pop = 5) %>%
+  dplyr::select(1,5) %>%
+  left_join(x = scotland, by = "DZ_code")
+
+# # check if over16 population > population in each DZ (returns 1 if true, 0 else)
+# unique(ifelse(scotland$over16_pop > scotland$population, 1, 0))
+# # view where over16 population > population
+# filter(scotland, over16_pop > population) %>% print(n=20) # 232 observations...
+
+# create "over 16 and no quals" binary flag, returns 1 if over 16 w/o qualifications, 0 otherwise
+# Level 1 = "O-grade" / "GCSEs" - count as no qualifications
+sc_education$over16_noqual_flag <- ifelse((!sc_education$age == "Total" & sc_education$highest_level_edu %in% c("No qualifications", "Level 1")),
+                                          1, 0)
+
+# left join to Scotland table
+scotland <- sc_education %>%
+  dplyr::select(1,6,5) %>%
+  group_by(DZ_code, over16_noqual_flag) %>%
+  summarise(over16_noqual_pop = sum(count)) %>% # sum for over 16y population w/o qualifications
+  filter(over16_noqual_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = scotland, by = "DZ_code")
+
+# create proportion over16s no qualifications
+scotland$prop_over16s_noquals <- (scotland$over16_noqual_pop)/(scotland$over16_pop)
+
+
+# c. Disability
+# [file]_v2 is transformed to CSV UTF-8 (comma-delimited .csv) for easier readability
+sc_disability <- read_csv("data/Scotland/table_2023-09-08_disability_v2.csv")
+# select and rename relevant columns
+sc_disability <- sc_disability %>% 
+  dplyr::select(3,4,5) %>%
+  rename(DZ_code = 1, disability = 2, count = 3)
+
+sc_disability <- sc_disability[12:nrow(sc_disability),] # select relevant rows: starting row 12
+# filter out disability:"All people" rows
+sc_disability <- filter(sc_disability,
+                        !disability == "All people")
+
+# create binary "disability" flag, returns 1 if disabled, 0 otherwise
+sc_disability$disability_flag <- ifelse(sc_disability$disability == "Day-to-day activities not limited", 0,1)
+
+# left-join count to Scotland table
+scotland <- sc_disability %>%
+  dplyr::select(1,4,3) %>%
+  group_by(DZ_code, disability_flag) %>%
+  summarise(disabled_pop = sum(count)) %>% # sum for over 16y population w/o qualifications
+  filter(disability_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = scotland, by = "DZ_code")
+
+# create proportion disabled
+scotland$prop_disabled <- (scotland$disabled_pop)/(scotland$population)
+
+# d. Children
+# [file]_v2 is transformed to CSV UTF-8 (comma-delimited .csv) for easier readability
+sc_children <- read_csv("data/Scotland/table_2023-09-08_hh_children_v2.csv")
+
+# select and rename relevant columns
+sc_children <- sc_children %>%
+  dplyr::select(2:5) %>%
+  rename(DZ_code = 1, children_in_family = 2, family_type = 3, count = 4)
+
+sc_children <- sc_children[11:nrow(sc_children),] # select relevant rows: starting row 11
+
+# filter out family type and number of children
+sc_children <- filter(sc_children,
+                      family_type == "All families in households" & children_in_family %in% c("All families in households",
+                                                                                              "Families with no dependent children",
+                                                                                              "Families with dependent children: Total"))
+# left-join households with children to Scotland table
+scotland <- sc_children %>%
+  filter(children_in_family == "Families with dependent children: Total") %>%
+  rename(hh_children = 4) %>%
+  dplyr::select(DZ_code, hh_children) %>%
+  left_join(x = scotland, by = "DZ_code")
+
+# create proportion households with children
+scotland$prop_hh_children <- (scotland$hh_children)/(scotland$households)
+
+
+# e. Housing
+# [file]_v2 is transformed to CSV UTF-8 (comma-delimited .csv) for easier readability
+sc_housing <- read_csv("data/Scotland/table_2023-09-07_hh_tenure_v2.csv")
+
+# select and rename relevant columns
+sc_housing <- sc_housing %>%
+  dplyr::select(3:6) %>%
+  rename(DZ_code = 1, accom_type = 2, tenure = 3, count = 4)
+
+sc_housing <- sc_housing[12:nrow(sc_housing),] # select relevant rows: starting row 12
+
+# filter out accommodation type
+sc_housing <- filter(sc_housing, accom_type == "All households")
+
+# left-join social rented to Scotland table
+scotland <- sc_housing %>%
+  filter(tenure == "Rented or living rent free: Social rented") %>%
+  rename(soc_housing = 4) %>%
+  dplyr::select(DZ_code, soc_housing) %>%
+  left_join(x = scotland, by = "DZ_code")
+
+# create proportion households in social housing
+scotland$prop_hh_soc_housing <- (scotland$soc_housing)/(scotland$households)
+
+
+# f. Income deprivation
+sc_inc_dep <- readxl::read_xlsx("data/Scotland/SIMD+2020v2+-+indicators.xlsx", sheet = "Data")
+# 2021 v. 2020 population estimates
+#left_join(scotland[,c("DZ_code", "population")], sc_inc_dep[,c("Data_Zone", "Total_population")], by = c("DZ_code" = "Data_Zone"))
+
+# select relevant columns
+sc_inc_dep <- dplyr::select(sc_inc_dep,
+                            Data_Zone, Income_rate)
+
+# left-join income deprivation rates to Scotland table
+scotland <- left_join(scotland, sc_inc_dep, by = c("DZ_code" = "Data_Zone")) %>%
+  rename(inc_dep_rate = Income_rate)
+
+summary(scotland)
+filter(scotland, prop_disabled == Inf)
+# some NaNs and Inf's due to 0 households/population in some DZs
+# keep all as NA
+scotland[!complete.cases(scotland), 2:ncol(scotland)] <- NA
+
+colSums(is.na(scotland))
 
 ### 3. N Ireland --------------------------------------------------------------
+# Northern Ireland 2021 Census Super Data Zones: 850
+# population and households data per SDZ
+# population
+ni_population <- readxl::read_xlsx("data/N_Ireland/census-2021-ms-a01.xlsx", sheet = "SDZ")
+# rename and select relevant columns
+ni_population <- ni_population %>%
+  rename(SDZ = 2, population = 3) %>%
+  dplyr::select(2,3)
+
+ni_population <- ni_population[6:nrow(ni_population),] # select relevant rows: starting row 6
+
+# households
+ni_households <-  readxl::read_xlsx("data/N_Ireland/census-2021-ms-e01.xlsx", sheet = "SDZ")
+# rename and select relevant columns
+ni_households <- ni_households %>%
+  rename(SDZ = 2, households = 3) %>% 
+  dplyr::select(2,3)
+
+ni_households <- ni_households[6:nrow(ni_households),] # select relevant rows: starting row 6
+
+# left-join: create new N Ireland table
+n_ireland <- left_join(ni_population, ni_households, by = "SDZ")
+str(n_ireland)
+# population and household counts as numeric
+n_ireland <- n_ireland %>%
+  mutate(population = as.numeric(population),
+         households = as.numeric(households))
+
+# check there aren't more households than population in each SDZ
+# returns 1 if households > population (wrong)
+unique(ifelse(n_ireland$households > n_ireland$population, 1, 0))
+
+# a. Age
+n_ire_age <- read_csv("data/N_Ireland/ni-census21-people-sdz21+age_band_agg2d-3a127c8f.csv")
+str(n_ire_age)
+# age 65y+ population
+n_ireland <- n_ire_age %>%
+  filter(`Age - 2 Categories D Code` == 2) %>%
+  rename(SDZ = 1, over65_pop = 5) %>%
+  dplyr::select(SDZ, over65_pop) %>%
+  left_join(x = n_ireland, by = "SDZ")
+
+# create proportion population over65
+n_ireland$prop_over65 <- (n_ireland$over65_pop)/(n_ireland$population)
 
 
-### 4. geography boundaries function ------------------------------------------
-# England, Wales and Northern Ireland datasets require geography translations from old to new boundaries
+# b. Education
+n_ire_education <- read_csv("data/N_Ireland/ni-census21-people-sdz21+highest_qualification+age_band_agg3-a6835f98.csv")
+str(n_ire_education)
 
-# required packages
-library(rgdal)
-library(raster)
-library(sf)
-library(st)
-library(shapefiles)
+# create 16y+ binary flag, returns 1 if over 16y, 0 otherwise
+n_ire_education$over16_flag <- ifelse(n_ire_education$`Age - 3 Categories Code` == 1, 0, 1)
 
-# translate_geo function to translate old boundaries to new boundaries using proportion of postcodes
-# the function requires 3 inputs: old boundaries, new boundaries and postcodes, all as .shp
-translate_geo <- function(old, new, postcodes){
-  # make sure CRS for all three datasets are equal
-  # coerce old and new boundaries to "POLYGON"
-  sf_use_s2(FALSE)
-  old <- st_cast(st_transform(old, crs = 4326), "POLYGON")
-  new <- st_cast(st_transform(new, crs = 4326), "POLYGON")
-  postcodes <- st_transform(postcodes, crs = 4326)
-  
-  # get number of postcodes in new boundaries
-  # st_join postcodes in new boundaries
-  new_w_postcodes <- st_join(new[new_code_col], postcodes[pcd_col]) # "new_code_col" and "pcd_col" need to be defined in global environment
-  #print(new_w_postcodes)
-  
-  # sum of postcodes in each new boundary
-  new_postcode_count <- new_w_postcodes %>%
-    as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
-    dplyr::select(1,2) %>%  # select only code and postcode cols by index
-    group_by_at(1) %>%  # group by area code
-    summarise(sum_new_postcodes = n()) %>%
-    ungroup()
-  #print(new_postcode_count)
-  
-  # intersection of old boundaries and new boundaries using st_intersection() function
-  # returns the intersection polygon for each old boundary part within a new boundary
-  new_w_old <- st_intersection(new[new_code_col], old[old_code_col])
-  #print(new_w_old)
-  
-  # save shapefile if wanted
-  #st_write(new_w_old, "[filepath/filename].shp")
-  
-  # left-join postcodes found in each intersection area
-  print(paste("CRS matches:", st_crs(new_w_old) == st_crs(postcodes))) # check Coordinate Reference System matches
-  new_w_old_postcodes <- st_join(new_w_old, postcodes[pcd_col])
-  #print(new_w_old_postcodes)
-  
-  # count number of postcodes in each intersection area (old boundaries parts within new boundary)
-  new_w_old_postcodes <- new_w_old_postcodes %>%
-    as.data.frame() %>%  # convert to regular st dataframe (easier for simple calculations)
-    dplyr::select(new_code_col, old_code_col, pcd_col) %>%  # select new boundary, old boundary and postcode columns
-    group_by(across(c(1, 2))) %>%   # group by new boundary code, old boundary code indexes
-    summarise(old_in_new_postcodes = n()) %>%
-    ungroup()
-  #print(new_w_old_postcodes)
-  
-  # create new table of proportion of postcodes in old boundaries parts as total postcodes new boundary
-  proportions <- new_postcode_count %>%
-    left_join(y = new_w_old_postcodes, by = new_code_col) %>%
-    mutate(prop = old_in_new_postcodes/sum_new_postcodes,
-           prop = round(prop, digits = 3))
-  #print(proportions)
-  
-  return(proportions)
-}
+# left-join over16 population to N Ireland table
+n_ireland <- n_ire_education %>%
+  rename(SDZ = 1) %>%  # rename SDZ code column
+  dplyr::select(1,8,7) %>%
+  group_by(SDZ, over16_flag) %>%
+  summarise(over16_pop = sum(Count)) %>% # sum for over 16y population
+  filter(over16_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = n_ireland, by = "SDZ")
 
-## read new boundaries shapefiles
-# obtained for England and Wales from: https://geoportal.statistics.gov.uk/datasets/766da1380a3544c5a7ca9131dfd4acb6/explore
-# (shapefile)
-# obtained for Northern Ireland from: https://www.nisra.gov.uk/publications/geography-super-data-zone-boundaries-gis-format
-# (ESRI shapefile)
+# create "over 16 and no quals" binary flag, returns 1 if over 16 w/o qualifications, 0 otherwise
+# Level 1 and Level 2 - count as no qualifications
+n_ire_education$over16_noqual_flag <- ifelse((n_ire_education$over16_flag == 1 & n_ire_education$`Qualifications (Highest Level) Code` %in% c(0,1,2)),
+                                             1,0)
 
-# England and Wales
-new <- st_read("data/geos/Eng_Wales_LSOA_2021_Boundaries/LSOA_2021_EW_BGC.shp")
-# keep only relevant columns: boundary code
-new <- dplyr::select(new, 1)
+# left join to N Ireland
+n_ireland <- n_ire_education %>%
+  rename(SDZ = 1) %>%  # rename SDZ code column
+  dplyr::select(1,9,7) %>%
+  group_by(SDZ, over16_noqual_flag) %>%
+  summarise(over16_noqual_pop = sum(Count)) %>% # sum for over 16y population w/o qualifications
+  filter(over16_noqual_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = n_ireland, by = "SDZ")
 
-# create new "country" column based on LSOA codes
-new$country <- ifelse(grepl('^E', new$LSOA21CD), "England", "Wales")
+# create proportion over16 population w/o qualifications
+n_ireland$prop_over16s_noquals <- (n_ireland$over16_noqual_pop)/(n_ireland$over16_pop)
 
-# new England boundaries
-new_E <- filter(new, country == 'England')
-# new Wales boundaries
-new_W <- filter(new, country == 'Wales')
+
+# c. Disability
+n_ire_disability <- read_csv("data/N_Ireland/ni-census21-people-sdz21+health_condition_intellectual_learning_disability-234ff795.csv")
+str(n_ire_disability)
+# left-join to N Ireland
+n_ireland <- n_ire_disability %>%
+  filter(`Health Condition (Intellectual or Learning Disability) Code` == 1) %>%
+  rename(SDZ = 1, disability_pop = 5) %>%
+  dplyr::select(SDZ, disability_pop) %>%
+  left_join(x = n_ireland, by = "SDZ")
+
+# create proportion population disabled
+n_ireland$prop_disabled <- (n_ireland$disability_pop)/(n_ireland$population)
+
+
+# d. Children
+n_ire_children <- read_csv("data/N_Ireland/ni-census21-household-sdz21+hh_dependent_children_ind-caec672f.csv")
+str(n_ire_children)
+# left-join households with children to N Ireland
+n_ireland <- n_ire_children %>%
+  filter(`Dependent Children (Household) - 2 Categories Code` == 1) %>%
+  rename(SDZ = 1, hh_children = 5) %>%
+  dplyr::select(SDZ, hh_children) %>%
+  left_join(x = n_ireland, by = "SDZ")
+
+# create proportion households with children
+n_ireland$prop_hh_children <- (n_ireland$hh_children)/(n_ireland$households)
+
+
+# e. Housing
+n_ire_housing <- read_csv("data/N_Ireland/ni-census21-household-sdz21+hh_tenure_agg4-56ffa305.csv")
+str(n_ire_housing)
+
+# create "social housing" binary flag, returns 1 if social rented, 0 otherwise
+n_ire_housing$soc_housing_flag <- ifelse(n_ire_housing$`Tenure - 4 Categories Code` == 2, 1,0)
+
+# left-join social housing households count to N Ireland table
+n_ireland <- n_ire_housing %>%
+  rename(SDZ = 1) %>%
+  dplyr::select(1,6,5) %>%
+  group_by(SDZ, soc_housing_flag) %>%
+  summarise(soc_housing = sum(Count)) %>%
+  filter(soc_housing_flag == 1) %>%
+  dplyr::select(1,3) %>% # drop flag column
+  left_join(x = n_ireland, by = "SDZ")
+
+# create proportion households in social housing
+n_ireland$prop_hh_soc_housing <- (n_ireland$soc_housing)/(n_ireland$households)
+
+
+# f. Income deprivation
+n_ire_inc_dep <- readxl::read_xls("data/N_Ireland/NIMDM17_SOAresults.xls", sheet = "Income")
+#colnames(n_ire_inc_dep)
+
+n_ire_inc_dep <- n_ire_inc_dep %>%
+  dplyr::select(3,6) %>%
+  rename(inc_dep_rate = 2)
+
+summary(n_ireland)
+
+### 5. Fix old boundaries data, create BDDI ranking ---------------------------
+## keep only proportion columns in each nation
+# England
+colnames(england)
+england <- dplyr::select(england,
+                         LSOA, prop_over65, prop_over16s_noquals, prop_disabled, prop_hh_children, prop_hh_sochousing)
+
+# Wales
+colnames(wales)
+wales <- dplyr::select(wales,
+                       LSOA, prop_over65, prop_over16s_noquals, prop_disabled, prop_hh_children, prop_hh_sochousing)
+
+# Scotland
+colnames(scotland)
+scotland <- dplyr::select(scotland,
+                          DZ_code, prop_over65, prop_over16s_noquals, prop_disabled, prop_hh_children, prop_hh_soc_housing, inc_dep_rate)
 
 # N Ireland
-new_NI <- st_read("data/geos/NI-sdz2021-esri-shapefile/SDZ2021.shp")
+colnames(n_ireland)
+# select proportions
+n_ireland <- dplyr::select(n_ireland,
+                           SDZ, prop_over65, prop_over16s_noquals, prop_disabled, prop_hh_children, prop_hh_soc_housing)
 
-# read old boundaries shapefiles (for all UK)
-# https://statistics.ukdataservice.ac.uk/dataset/2011-census-geography-boundaries-lower-layer-super-output-areas-and-data-zones
-# Features in Shapefile format
-all_old <- st_read("data/geos/infuse_lsoa_lyr_2011/infuse_lsoa_lyr_2011.shp")
-# keep only relevant columns: boundary code
-all_old <- dplyr::select(all_old, 1)
+## Fix datasets with old boundaries: income deprivation and BII
+# England
+# translation table
+translate_england <- read_csv("translation_fn_tables/translate_england.csv")
+translate_england <- dplyr::select(translate_england, lsoa21, geo_code, prop)
 
-# create new "country" column based on LSOA codes
-all_old$country <- ifelse(grepl('^E', all_old$geo_code), "England", # starts with E
-                          ifelse(grepl('^W', all_old$geo_code), "Wales", # starts with W
-                                 ifelse(grepl('^S', all_old$geo_code), "Scotland", "Northern Ireland"))) # starts with S, else N-Ireland
+translate_england %>% group_by(lsoa21) %>%
+  summarise(sum(prop))
 
-# old England boundaries
-old_E <- filter(all_old, country == 'England')
-# old Wales boundaries
-old_W <- filter(all_old, country == 'Wales')
-# old N Ireland boundaries
-old_NI <- filter(all_old, country == 'Northern Ireland')
+# left join proportions to table needing translation: Income
+eng_inc_dep <- left_join(eng_inc_dep, translate_england, by = c("LSOA" = "geo_code"))
+# multiply measure with proportions
+eng_inc_dep$inc_dep_rate2 <- (eng_inc_dep$inc_dep_rate)*(eng_inc_dep$prop)
 
+# group by new LSOA '21
+eng_inc_dep_fixed <- eng_inc_dep %>%
+  group_by(lsoa21) %>%
+  summarise(inc_dep_rate = sum(inc_dep_rate2))
 
-# read postcodes .csv for all UK from P-T UPC time-series table
-# all new boundaries for England, Wales and N Ireland in 2021: selected end year 2021 from UPC using SQL query (see .rtf file):
-postcodes <- read_csv("data/PT_UPC_postcodes_Dec2021.csv")
-summary(postcodes)
+summary(eng_inc_dep_fixed)
+filter(eng_inc_dep_fixed, inc_dep_rate > 1)
+# make these values NA
+eng_inc_dep_fixed$inc_dep_rate[eng_inc_dep_fixed$inc_dep_rate > 1] <- NA
 
-# NSPL 2021 provides longitude & latitude for postcodes
-# obtained at: https://geoportal.statistics.gov.uk/datasets/national-statistics-postcode-lookup-2021-census-november-2022/about
-nspl21 <- read_csv("data/geos/NSPL21_NOV_2022_UK/Data/NSPL21_NOV_2022_UK.csv")
+# left-join fixed income_dep_rate to England table
+england <- left_join(england, eng_inc_dep_fixed, by = c("LSOA" = "lsoa21"))
 
-# left join long & lat using pcds
-postcodes <- nspl21 %>%
-  dplyr::select(pcds, lat, long) %>%
-  left_join(x = postcodes, by = c("POSTCODE" = "pcds"))
-# check NA's
-summary(postcodes)
+# replace NA value using knn
+library(VIM)
+sqrt(ncol(england)-1) # find sqrt of number of variables for approx. k
+england <- kNN(england, k = 3, trace = FALSE, imp_var = FALSE)  # perform knn imputation
 
-# convert postcodes to sf using st_as_sf()
-# X is longitude, Y is latitude
-postcodes_sf <- st_as_sf(postcodes[c(1,4,5,6)], coords = c("long", "lat"), crs = 4326)
-# save as shapefile
-#st_write(postcodes_sf, "data/geos/postcodes_shapefile/UK_postcodes_2021.shp")
+summary(england)
 
-# England postcodes
-postcodes_sf_E <- filter(postcodes_sf, COUNTRY == 'England')
-# Wales postcodes
-postcodes_sf_W <- filter(postcodes_sf, COUNTRY == 'Wales')
-# N Ireland postcodes
-postcodes_sf_NI <- filter(postcodes_sf, COUNTRY == 'Northern Ireland')
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+england <- mutate(england,
+                  age_rank = NA,
+                  edu_rank = NA,
+                  disab_rank = NA,
+                  children_rank = NA,
+                  housing_rank = NA,
+                  income_rank = NA)
 
-# # view map
-# library(tmap)
-# tmap_mode("view")
-# tm_shape(postcodes_sf_NI) + tm_dots()
-
-
-## get England table
-old_code_col = "geo_code"
-# insert new boundaries code column
-new_code_col = "LSOA21CD"
-# insert postcodes code column
-pcd_col = "POSTCODE"
-
-translate_england <- translate_geo(old_E, new_E, postcodes_sf_E)
-write_csv(translate_england, "data/translate_england.csv")
-
-## get Wales table
-old_code_col = "geo_code"
-# insert new boundaries code column
-new_code_col = "LSOA21CD"
-# insert postcodes code column
-pcd_col = "POSTCODE"
-
-translate_wales <- translate_geo(old_W, new_W, postcodes_sf_W)
-write_csv(translate_wales, "data/translate_wales.csv")
+# create LSOA ranking for age: lower prop_over65 is better
+england$age_rank[order(england$prop_over65, decreasing = FALSE)] <- 1:nrow(england)
+# create LSOA ranking for education: lower prop_over16s_noquals is better
+england$edu_rank[order(england$prop_over16s_noquals, decreasing = FALSE)] <- 1:nrow(england)
+# create LSOA ranking for disability: lower prop_disabled is better
+england$disab_rank[order(england$prop_disabled, decreasing = FALSE)] <- 1:nrow(england)
+# create LSOA ranking for children: higher prop_hh_children is better
+england$children_rank[order(england$prop_hh_children, decreasing = TRUE)] <- 1:nrow(england)
+# create LSOA ranking for housing: lower prop_hh_sochousing is better
+england$housing_rank[order(england$prop_hh_sochousing, decreasing = FALSE)] <- 1:nrow(england)
+# create LSOA ranking for income: lower inc_dep_rate is better
+england$income_rank[order(england$inc_dep_rate, decreasing = FALSE)] <- 1:nrow(england)
 
 
-## get Northern Ireland table
-old_code_col = "geo_code"
-# insert new boundaries code column
-new_code_col = "SDZ2021_cd"
-# insert postcodes code column
-pcd_col = "POSTCODE"
+# BII: left join proportions to table
+# LSOAs haven't been updated, in future BII should have updated LSOAs and should only require a left-join
+eng_bii <- read_csv("data/BII_outputs/newBII_output2023_England.csv")
+# select columns for translation
+eng_bii <- dplyr::select(eng_bii, 1:8)
 
-translate_nire <- translate_geo(old_NI, new_NI, postcodes_sf_NI)
-write_csv(translate_nire, "data/translate_nireland.csv")
+eng_bii <- left_join(eng_bii, translate_england, by = c("LSOA" = "geo_code"))
+
+# multiply each measure with proportions column
+eng_bii_fixed <- eng_bii %>%
+  mutate(across(c(2:8), function(x) x*prop))
+
+# group by new LSOAs '21
+eng_bii_fixed <- eng_bii_fixed %>%
+  group_by(lsoa21) %>%
+  summarise(FTTP_AVAILABILITY = sum(FTTP_AVAILABILITY),
+            FTTC_AVAILABILITY = sum(FTTC_AVAILABILITY),
+            DSL_AVAILABILITY = sum(DSL_AVAILABILITY),
+            CABLE_AVAILABILITY = sum(CABLE_AVAILABILITY),
+            OPERATOR_COUNT = sum(OPERATOR_COUNT),
+            DOWN_MBPS = sum(DOWN_MBPS),
+            UP_MBPS = sum(UP_MBPS))
+
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+eng_bii_fixed <- mutate(eng_bii_fixed,
+                        fttp_rank = NA,
+                        fttc_rank = NA,
+                        dsl_rank = NA,
+                        cable_rank = NA,
+                        opscount_rank = NA,
+                        down_rank = NA,
+                        up_rank = NA)
+
+# create LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
+# 0-100 % availability -- higher (more availability) is better
+eng_bii_fixed$fttp_rank[order(eng_bii_fixed$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+eng_bii_fixed$fttc_rank[order(eng_bii_fixed$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+eng_bii_fixed$dsl_rank[order(eng_bii_fixed$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+eng_bii_fixed$cable_rank[order(eng_bii_fixed$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+
+# create LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
+eng_bii_fixed$opscount_rank[order(eng_bii_fixed$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+
+# create LSOA ranking for speed tests -- higher (faster) is better
+# Down_speed
+eng_bii_fixed$down_rank[order(eng_bii_fixed$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+# Up_speed
+eng_bii_fixed$up_rank[order(eng_bii_fixed$UP_MBPS, decreasing = TRUE)] <- 1:nrow(eng_bii_fixed)
+
+# create column for total sum of ranks for each LSOA
+eng_bii_fixed$rank_sum <- rowSums(eng_bii_fixed[9:15])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+eng_bii_fixed$final_BII_RANK[order(eng_bii_fixed$rank_sum)] <- 1:nrow(eng_bii_fixed)
+
+summary(eng_bii_fixed)
+
+## create final BDDI rank
+england_BDDI <- england %>%
+  dplyr::select(LSOA, age_rank, edu_rank, disab_rank, children_rank, housing_rank, income_rank) %>%
+  left_join(y = eng_bii_fixed[c("lsoa21", "final_BII_RANK")], by = c("LSOA" = "lsoa21"))
+
+# sum ranks
+england_BDDI$rank_sum = rowSums(england_BDDI[2:8])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+england_BDDI$final_BDDI_RANK[order(england_BDDI$rank_sum)] <- 1:nrow(england_BDDI)
+
+# write to .csv
+write.csv(england_BDDI, "BDDI_outputs/BDDI_England.csv")
+
+# Wales
+# translation table
+translate_wales <- read_csv("translation_fn_tables/translate_wales.csv")
+translate_wales <- dplyr::select(translate_wales, lsoa21, geo_code, prop)
+
+translate_wales %>% group_by(lsoa21) %>%
+  summarise(sum(prop))
+
+# left join proportions to table needing translation: Income deprivation
+wales_inc_dep <- left_join(wales_inc_dep, translate_wales, by = c("LSOA" = "geo_code"))
+# multiply measure with proportions
+wales_inc_dep$inc_dep_rate2 <- (wales_inc_dep$inc_dep_rate)*(wales_inc_dep$prop)
+
+# group by new LSOA '21
+wales_inc_dep_fixed <- wales_inc_dep %>%
+  group_by(lsoa21) %>%
+  summarise(inc_dep_rate = sum(inc_dep_rate2))
+
+summary(wales_inc_dep_fixed)
+filter(wales_inc_dep_fixed, inc_dep_rate > 100)
+
+# left-join fixed income_dep_rate to Wales table
+wales <- left_join(wales, wales_inc_dep_fixed, by = c("LSOA" = "lsoa21"))
+
+summary(wales)
+
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+wales <- mutate(wales,
+                  age_rank = NA,
+                  edu_rank = NA,
+                  disab_rank = NA,
+                  children_rank = NA,
+                  housing_rank = NA,
+                  income_rank = NA)
+
+# create LSOA ranking for age: lower prop_over65 is better
+wales$age_rank[order(wales$prop_over65, decreasing = FALSE)] <- 1:nrow(wales)
+# create LSOA ranking for education: lower prop_over16s_noquals is better
+wales$edu_rank[order(wales$prop_over16s_noquals, decreasing = FALSE)] <- 1:nrow(wales)
+# create LSOA ranking for disability: lower prop_disabled is better
+wales$disab_rank[order(wales$prop_disabled, decreasing = FALSE)] <- 1:nrow(wales)
+# create LSOA ranking for children: higher prop_hh_children is better
+wales$children_rank[order(wales$prop_hh_children, decreasing = TRUE)] <- 1:nrow(wales)
+# create LSOA ranking for housing: lower prop_hh_sochousing is better
+wales$housing_rank[order(wales$prop_hh_sochousing, decreasing = FALSE)] <- 1:nrow(wales)
+# create LSOA ranking for income: lower inc_dep_rate is better
+wales$income_rank[order(wales$inc_dep_rate, decreasing = FALSE)] <- 1:nrow(wales)
 
 
-### 5. Join all data ----------------------------------------------------------
+# BII: left join proportions to table
+# LSOAs haven't been updated, in future BII should have updated LSOAs and should only require a left-join
+wales_bii <- read_csv("data/BII_outputs/newBII_output2023_Wales.csv")
+# select columns for translation
+wales_bii <- dplyr::select(wales_bii, 1:8)
 
-# read in the BII files
+wales_bii <- left_join(wales_bii, translate_wales, by = c("LSOA" = "geo_code"))
+
+# multiply each measure with proportions column
+wales_bii_fixed <- wales_bii %>%
+  mutate(across(c(2:8), function(x) x*prop))
+
+# group by new LSOAs '21
+wales_bii_fixed <- wales_bii_fixed %>%
+  group_by(lsoa21) %>%
+  summarise(FTTP_AVAILABILITY = sum(FTTP_AVAILABILITY),
+            FTTC_AVAILABILITY = sum(FTTC_AVAILABILITY),
+            DSL_AVAILABILITY = sum(DSL_AVAILABILITY),
+            CABLE_AVAILABILITY = sum(CABLE_AVAILABILITY),
+            OPERATOR_COUNT = sum(OPERATOR_COUNT),
+            DOWN_MBPS = sum(DOWN_MBPS),
+            UP_MBPS = sum(UP_MBPS))
+
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+wales_bii_fixed <- mutate(wales_bii_fixed,
+                          fttp_rank = NA,
+                          fttc_rank = NA,
+                          dsl_rank = NA,
+                          cable_rank = NA,
+                          opscount_rank = NA,
+                          down_rank = NA,
+                          up_rank = NA)
+
+# create LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
+# 0-100 % availability -- higher (more availability) is better
+wales_bii_fixed$fttp_rank[order(wales_bii_fixed$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+wales_bii_fixed$fttc_rank[order(wales_bii_fixed$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+wales_bii_fixed$dsl_rank[order(wales_bii_fixed$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+wales_bii_fixed$cable_rank[order(wales_bii_fixed$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+
+# create LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
+wales_bii_fixed$opscount_rank[order(wales_bii_fixed$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+
+# create LSOA ranking for speed tests -- higher (faster) is better
+# Down_speed
+wales_bii_fixed$down_rank[order(wales_bii_fixed$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+# Up_speed
+wales_bii_fixed$up_rank[order(wales_bii_fixed$UP_MBPS, decreasing = TRUE)] <- 1:nrow(wales_bii_fixed)
+
+# create column for total sum of ranks for each LSOA
+wales_bii_fixed$rank_sum <- rowSums(wales_bii_fixed[9:15])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+wales_bii_fixed$final_BII_RANK[order(wales_bii_fixed$rank_sum)] <- 1:nrow(wales_bii_fixed)
+
+summary(wales_bii_fixed)
+
+## create final BDDI rank
+colnames(wales)
+wales_BDDI <- wales %>%
+  dplyr::select(LSOA, age_rank, edu_rank, disab_rank, children_rank, housing_rank, income_rank) %>%
+  left_join(y = wales_bii_fixed[c("lsoa21", "final_BII_RANK")], by = c("LSOA" = "lsoa21"))
+
+# sum ranks
+wales_BDDI$rank_sum = rowSums(wales_BDDI[2:8])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+wales_BDDI$final_BDDI_RANK[order(wales_BDDI$rank_sum)] <- 1:nrow(wales_BDDI)
+
+# write to .csv
+write.csv(wales_BDDI, "BDDI_outputs/BDDI_Wales.csv")
+
+
+# N Ireland
+# translation table
+translate_n_ire <- read_csv("translation_fn_tables/translate_n_ireland.csv")
+translate_n_ire <- dplyr::select(translate_n_ire, lsoa21, geo_code, prop)
+
+translate_n_ire %>% group_by(lsoa21) %>%
+  summarise(sum(prop))
+
+# left join proportions to table needing translation: Income deprivation
+n_ire_inc_dep <- left_join(n_ire_inc_dep, translate_n_ire, by = c("SOA2001" = "geo_code"))
+# multiply measure with proportions
+n_ire_inc_dep$inc_dep_rate2 <- (n_ire_inc_dep$inc_dep_rate)*(n_ire_inc_dep$prop)
+
+# group by new LSOA '21
+n_ire_inc_dep_fixed <- n_ire_inc_dep %>%
+  group_by(lsoa21) %>%
+  summarise(inc_dep_rate = sum(inc_dep_rate2))
+
+summary(n_ire_inc_dep_fixed)
+filter(n_ire_inc_dep_fixed, inc_dep_rate > 1)
+
+# left-join fixed income_dep_rate to Wales table
+n_ireland <- left_join(n_ireland, n_ire_inc_dep_fixed, by = c("SDZ" = "lsoa21"))
+
+summary(n_ireland)
+
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+n_ireland <- mutate(n_ireland,
+                    age_rank = NA,
+                    edu_rank = NA,
+                    disab_rank = NA,
+                    children_rank = NA,
+                    housing_rank = NA,
+                    income_rank = NA)
+
+# create LSOA ranking for age: lower prop_over65 is better
+n_ireland$age_rank[order(n_ireland$prop_over65, decreasing = FALSE)] <- 1:nrow(n_ireland)
+# create LSOA ranking for education: lower prop_over16s_noquals is better
+n_ireland$edu_rank[order(n_ireland$prop_over16s_noquals, decreasing = FALSE)] <- 1:nrow(n_ireland)
+# create LSOA ranking for disability: lower prop_disabled is better
+n_ireland$disab_rank[order(n_ireland$prop_disabled, decreasing = FALSE)] <- 1:nrow(n_ireland)
+# create LSOA ranking for children: higher prop_hh_children is better
+n_ireland$children_rank[order(n_ireland$prop_hh_children, decreasing = TRUE)] <- 1:nrow(n_ireland)
+# create LSOA ranking for housing: lower prop_hh_sochousing is better
+n_ireland$housing_rank[order(n_ireland$prop_hh_soc_housing, decreasing = FALSE)] <- 1:nrow(n_ireland)
+# create LSOA ranking for income: lower inc_dep_rate is better
+n_ireland$income_rank[order(n_ireland$inc_dep_rate, decreasing = FALSE)] <- 1:nrow(n_ireland)
+
+
+# BII: left join proportions to table
+# LSOAs haven't been updated, in future BII should have updated LSOAs and should only require a left-join
+n_ire_bii <- read_csv("data/BII_outputs/newBII_output2023_NIreland.csv")
+# select columns for translation
+n_ire_bii <- dplyr::select(n_ire_bii, 1:8)
+
+n_ire_bii <- left_join(n_ire_bii, translate_n_ire, by = c("LSOA" = "geo_code"))
+
+# multiply each measure with proportions column
+n_ire_bii_fixed <- n_ire_bii %>%
+  mutate(across(c(2:8), function(x) x*prop))
+
+# group by new LSOAs '21
+n_ire_bii_fixed <- n_ire_bii_fixed %>%
+  group_by(lsoa21) %>%
+  summarise(FTTP_AVAILABILITY = sum(FTTP_AVAILABILITY),
+            FTTC_AVAILABILITY = sum(FTTC_AVAILABILITY),
+            DSL_AVAILABILITY = sum(DSL_AVAILABILITY),
+            CABLE_AVAILABILITY = sum(CABLE_AVAILABILITY),
+            OPERATOR_COUNT = sum(OPERATOR_COUNT),
+            DOWN_MBPS = sum(DOWN_MBPS),
+            UP_MBPS = sum(UP_MBPS))
+
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+n_ire_bii_fixed <- mutate(n_ire_bii_fixed,
+                          fttp_rank = NA,
+                          fttc_rank = NA,
+                          dsl_rank = NA,
+                          cable_rank = NA,
+                          opscount_rank = NA,
+                          down_rank = NA,
+                          up_rank = NA)
+
+# create LSOA ranking for broadband technology availability variables (FTTP, FTTC, DSL, Cable)
+# 0-100 % availability -- higher (more availability) is better
+n_ire_bii_fixed$fttp_rank[order(n_ire_bii_fixed$FTTP_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+n_ire_bii_fixed$fttc_rank[order(n_ire_bii_fixed$FTTC_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+n_ire_bii_fixed$dsl_rank[order(n_ire_bii_fixed$DSL_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+n_ire_bii_fixed$cable_rank[order(n_ire_bii_fixed$CABLE_AVAILABILITY, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+
+# create LSOA ranking for OPERATOR_COUNT -- higher (more operators) is better
+n_ire_bii_fixed$opscount_rank[order(n_ire_bii_fixed$OPERATOR_COUNT, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+
+# create LSOA ranking for speed tests -- higher (faster) is better
+# Down_speed
+n_ire_bii_fixed$down_rank[order(n_ire_bii_fixed$DOWN_MBPS, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+# Up_speed
+n_ire_bii_fixed$up_rank[order(n_ire_bii_fixed$UP_MBPS, decreasing = TRUE)] <- 1:nrow(n_ire_bii_fixed)
+
+# create column for total sum of ranks for each LSOA
+n_ire_bii_fixed$rank_sum <- rowSums(n_ire_bii_fixed[9:15])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+n_ire_bii_fixed$final_BII_RANK[order(n_ire_bii_fixed$rank_sum)] <- 1:nrow(n_ire_bii_fixed)
+
+summary(n_ire_bii_fixed)
+
+## create final BDDI rank
+colnames(n_ireland)
+n_ireland_BDDI <- n_ireland %>%
+  dplyr::select(SDZ, age_rank, edu_rank, disab_rank, children_rank, housing_rank, income_rank) %>%
+  left_join(y = n_ire_bii_fixed[c("lsoa21", "final_BII_RANK")], by = c("SDZ" = "lsoa21"))
+
+# sum ranks
+n_ireland_BDDI$rank_sum = rowSums(n_ireland_BDDI[2:8])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+n_ireland_BDDI$final_BDDI_RANK[order(n_ireland_BDDI$rank_sum)] <- 1:nrow(n_ireland_BDDI)
+
+# write to .csv
+write.csv(n_ireland_BDDI, "BDDI_outputs/BDDI_NIreland.csv")
+
+
+# Scotland
+# create empty rank columns for each variable
+# follows same procedure as creating BII separately
+scotland <- mutate(scotland,
+                   age_rank = NA,
+                    edu_rank = NA,
+                    disab_rank = NA,
+                    children_rank = NA,
+                    housing_rank = NA,
+                    income_rank = NA)
+
+# create LSOA ranking for age: lower prop_over65 is better
+scotland$age_rank[order(scotland$prop_over65, decreasing = FALSE)] <- 1:nrow(scotland)
+# create LSOA ranking for education: lower prop_over16s_noquals is better
+scotland$edu_rank[order(scotland$prop_over16s_noquals, decreasing = FALSE)] <- 1:nrow(scotland)
+# create LSOA ranking for disability: lower prop_disabled is better
+scotland$disab_rank[order(scotland$prop_disabled, decreasing = FALSE)] <- 1:nrow(scotland)
+# create LSOA ranking for children: higher prop_hh_children is better
+scotland$children_rank[order(scotland$prop_hh_children, decreasing = TRUE)] <- 1:nrow(scotland)
+# create LSOA ranking for housing: lower prop_hh_sochousing is better
+scotland$housing_rank[order(scotland$prop_hh_soc_housing, decreasing = FALSE)] <- 1:nrow(scotland)
+# create LSOA ranking for income: lower inc_dep_rate is better
+scotland$income_rank[order(scotland$inc_dep_rate, decreasing = FALSE)] <- 1:nrow(scotland)
+
+# keep all NAs as NA
+scotland[!complete.cases(scotland), 2:ncol(scotland)] <- NA
+summary(scotland)
+
+# read BII
+scotland_bii <- read_csv("data/BII_outputs/newBII_output2023_Scotland.csv")
+#scotland_bii[scotland_bii$LSOA %in% c("S01010206", "S01010226", "S01010227"), "final_RANK"]
+
+# left-join ranks and BII
+scotland_BDDI <- scotland %>%
+  dplyr::select(DZ_code, age_rank, edu_rank, disab_rank, children_rank, housing_rank, income_rank) %>%
+  left_join(y = scotland_bii[c("LSOA", "final_RANK")], by = c("DZ_code" = "LSOA"))
+
+scotland_BDDI <- rename(scotland_BDDI, final_BII_RANK = final_RANK) # rename BII
+# keep all NAs as NA
+scotland_BDDI[!complete.cases(scotland_BDDI), 2:ncol(scotland_BDDI)] <- NA
+
+# sum ranks
+scotland_BDDI$rank_sum = rowSums(scotland_BDDI[2:8])
+
+# use rank_sum to create final relative rank: 1 is best (lower overall rank is better)
+scotland_BDDI$final_BDDI_RANK[order(scotland_BDDI$rank_sum)] <- 1:nrow(scotland_BDDI)
+# keep all NAs as NA
+scotland_BDDI[!complete.cases(scotland_BDDI), 2:ncol(scotland_BDDI)] <- NA
+
+
+# write to .csv
+write.csv(scotland_BDDI, "BDDI_outputs/BDDI_Scotland.csv")
