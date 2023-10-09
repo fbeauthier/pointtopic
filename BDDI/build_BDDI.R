@@ -368,7 +368,6 @@ wales_inc_dep %>% ggplot(aes(x = inc_dep_rate)) +
 
 summary(england)
 summary(wales)
-# finish pre-processing in section 5 #
 
 ### 2. Scotland ---------------------------------------------------------------
 # Scotland 2011 Data Zones: 6,976
@@ -865,6 +864,7 @@ england_BDDI$final_BDDI_RANK[order(england_BDDI$rank_sum)] <- 1:nrow(england_BDD
 
 # write to .csv
 write.csv(england_BDDI, "BDDI_outputs/BDDI_England.csv")
+
 
 # Wales
 # translation table
