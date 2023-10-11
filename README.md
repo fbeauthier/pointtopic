@@ -20,5 +20,5 @@ This folder contains all the code to create (and evenutally update) the new BDDI
 1. The `build_BDDI.R` file contains the code to construct the BDDI in R for each nation
 2. The `translate_geos_fn.ipynb` file contains the code in python to translate data with old boundaries to new 2021 boundaries, where necessary.
 
-### UPC Prems
+### UPC Demographics
 tbc
